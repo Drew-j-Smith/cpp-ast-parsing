@@ -5,23 +5,21 @@
 #include <optional>
 #include <string_view>
 #include <system_error>
+#include <variant>
 #include <vector>
 
-struct Symbol {
-    virtual ~Symbol() = default;
-};
-
-class Parser {
+template <typename... Symbols> class Parser {
 public:
-    using TerminalFp =
-        std::optional<std::unique_ptr<Symbol>> (*)(std::string_view &);
-    using RuleFp = bool (*)(std::vector<std::unique_ptr<Symbol>> &);
+    using Variant = std::variant<Symbols...>;
+    using VariantPtr = std::unique_ptr<Variant>;
+    using TerminalFp = VariantPtr (*)(std::string_view &);
+    using RuleFp = bool (*)(std::vector<VariantPtr> &);
 
 private:
     std::vector<TerminalFp> terminalSymbols;
     std::vector<RuleFp> rules;
 
-    bool reduce(std::vector<std::unique_ptr<Symbol>> &parseStack) {
+    bool reduce(std::vector<VariantPtr> &parseStack) {
         for (auto rule : rules) {
             if (rule(parseStack)) {
                 return true;
@@ -30,11 +28,10 @@ private:
         return false;
     }
 
-    bool shift(std::vector<std::unique_ptr<Symbol>> &parseStack,
-               std::string_view &str) {
+    bool shift(std::vector<VariantPtr> &parseStack, std::string_view &str) {
         for (auto terminal : terminalSymbols) {
             if (auto symbol = terminal(str)) {
-                parseStack.push_back(std::move(symbol.value()));
+                parseStack.push_back(std::move(symbol));
                 return true;
             }
         }
@@ -46,8 +43,8 @@ public:
         : terminalSymbols{std::move(terminalSymbols)}, rules{std::move(rules)} {
     }
 
-    std::unique_ptr<Symbol> parse(std::string_view str) {
-        std::vector<std::unique_ptr<Symbol>> parseStack;
+    VariantPtr parse(std::string_view str) {
+        std::vector<VariantPtr> parseStack;
         while (str.size() > 0) {
             if (!shift(parseStack, str)) {
                 std::cout << "Error parsing\n";
@@ -63,19 +60,22 @@ public:
     }
 };
 
-struct IntSymbol final : public Symbol {
+struct IntSymbol {
     int val;
     IntSymbol(int val) : val{val} {}
 
-    static std::optional<std::unique_ptr<Symbol>> shift(std::string_view &str) {
+    template <typename ParserType>
+    static typename ParserType::VariantPtr shift(std::string_view &str) {
         int result{};
 
         auto [ptr,
               ec]{std::from_chars(str.data(), str.data() + str.size(), result)};
 
         if (ec == std::errc{}) {
-            str = std::string_view(ptr, str.data() + str.size() - ptr);
-            return std::make_unique<IntSymbol>(result);
+            str = std::string_view(
+                ptr, static_cast<std::size_t>(str.data() + str.size() - ptr));
+            return std::make_unique<typename ParserType::Variant>(
+                IntSymbol{result});
         } else if (ec == std::errc::invalid_argument) {
             return {};
         } else if (ec == std::errc::result_out_of_range) {
@@ -87,18 +87,19 @@ struct IntSymbol final : public Symbol {
     }
 };
 
-class AddSymbol final : public Symbol {
+class AddSymbol final {
 public:
-    static std::optional<std::unique_ptr<Symbol>> shift(std::string_view &str) {
+    template <typename ParserType>
+    static typename ParserType::VariantPtr shift(std::string_view &str) {
         if (str[0] == '+') {
             str = std::string_view(str.data() + 1, str.size() - 1);
-            return std::make_unique<AddSymbol>();
+            return std::make_unique<typename ParserType::Variant>(AddSymbol{});
         }
         return {};
     }
 };
 
-struct AddExpression final : public Symbol {
+struct AddExpression {
     IntSymbol left;
     AddSymbol add;
     IntSymbol right;
@@ -107,33 +108,33 @@ struct AddExpression final : public Symbol {
         : left(left), add(add), right(right) {}
 };
 
-bool createAddExpression(std::vector<std::unique_ptr<Symbol>> &vec) {
+template <typename ParserType>
+bool createAddExpression(std::vector<typename ParserType::VariantPtr> &vec) {
     if (vec.size() != 3) {
         return false;
     }
-    IntSymbol *left = dynamic_cast<IntSymbol *>(vec[0].get());
-    if (left == nullptr) {
+    auto left = std::get_if<IntSymbol>(vec[0].get());
+    auto add = std::get_if<AddSymbol>(vec[1].get());
+    auto right = std::get_if<IntSymbol>(vec[2].get());
+    if (!left || !add || !right) {
         return false;
     }
-    AddSymbol *add = dynamic_cast<AddSymbol *>(vec[1].get());
-    if (add == nullptr) {
-        return false;
-    }
-    IntSymbol *right = dynamic_cast<IntSymbol *>(vec[2].get());
-    if (right == nullptr) {
-        return false;
-    }
-    std::unique_ptr<Symbol> res =
-        std::make_unique<AddExpression>(*left, *add, *right);
+    typename ParserType::VariantPtr res =
+        std::make_unique<typename ParserType::Variant>(
+            AddExpression{*left, *add, *right});
     vec.clear();
     vec.push_back(std::move(res));
     return true;
 }
 
 int main() {
-    Parser p{{IntSymbol::shift, AddSymbol::shift}, {createAddExpression}};
+    using ParserType = Parser<IntSymbol, AddSymbol, AddExpression>;
+
+    ParserType p{{IntSymbol::shift<ParserType>, AddSymbol::shift<ParserType>},
+                 {createAddExpression<ParserType>}};
     auto symbol = p.parse("1+1");
-    if (AddExpression *add = dynamic_cast<AddExpression *>(symbol.get())) {
-        std::cout << add->left.val << '+' << add->right.val << '\n';
+    if (auto expression = std::get_if<AddExpression>(symbol.get())) {
+        std::cout << expression->left.val << '+' << expression->right.val
+                  << '\n';
     }
 }
