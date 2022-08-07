@@ -1,10 +1,19 @@
 
+#include <array>
 #include <charconv>
 #include <iostream>
 #include <string_view>
 #include <system_error>
 #include <variant>
 #include <vector>
+
+template <typename T> struct ParserTraits {
+    template <typename ParserType>
+    static typename ParserType::Variant shift(std::string_view &str);
+
+    template <typename ParserType>
+    static bool reduce(std::vector<typename ParserType::Variant> &vec);
+};
 
 template <typename... Symbols> class Parser {
 public:
@@ -13,11 +22,11 @@ public:
     using RuleFp = bool (*)(std::vector<Variant> &);
 
 private:
-    std::vector<TerminalFp> terminalSymbols;
-    std::vector<RuleFp> rules;
+    std::array<TerminalFp, sizeof...(Symbols)> shifters;
+    std::array<RuleFp, sizeof...(Symbols)> reducers;
 
     bool reduce(std::vector<Variant> &parseStack) {
-        for (auto rule : rules) {
+        for (auto rule : reducers) {
             if (rule(parseStack)) {
                 return true;
             }
@@ -26,8 +35,8 @@ private:
     }
 
     bool shift(std::vector<Variant> &parseStack, std::string_view &str) {
-        for (auto terminal : terminalSymbols) {
-            auto symbol = terminal(str);
+        for (auto shifter : shifters) {
+            auto symbol = shifter(str);
             if (!std::holds_alternative<std::monostate>(symbol)) {
                 parseStack.push_back(std::move(symbol));
                 return true;
@@ -37,9 +46,9 @@ private:
     }
 
 public:
-    Parser(std::vector<TerminalFp> terminalSymbols, std::vector<RuleFp> rules)
-        : terminalSymbols{std::move(terminalSymbols)}, rules{std::move(rules)} {
-    }
+    Parser(ParserTraits<Symbols>... symbols)
+        : shifters{symbols.template shift<Parser<Symbols...>>...},
+          reducers{symbols.template reduce<Parser<Symbols...>>...} {}
 
     Variant parse(std::string_view str) {
         std::vector<Variant> parseStack;
@@ -61,7 +70,9 @@ public:
 struct IntSymbol {
     int val;
     IntSymbol(int val) : val{val} {}
+};
 
+template <> struct ParserTraits<IntSymbol> {
     template <typename ParserType>
     static typename ParserType::Variant shift(std::string_view &str) {
         int result{};
@@ -82,10 +93,16 @@ struct IntSymbol {
             return {};
         }
     }
+
+    template <typename ParserType>
+    static bool reduce(std::vector<typename ParserType::Variant> &vec) {
+        return false;
+    }
 };
 
-class AddSymbol {
-public:
+class AddSymbol {};
+
+template <> struct ParserTraits<AddSymbol> {
     template <typename ParserType>
     static typename ParserType::Variant shift(std::string_view &str) {
         if (str[0] == '+') {
@@ -93,6 +110,11 @@ public:
             return AddSymbol{};
         }
         return {};
+    }
+
+    template <typename ParserType>
+    static bool reduce(std::vector<typename ParserType::Variant> &vec) {
+        return false;
     }
 };
 
@@ -105,28 +127,35 @@ struct AddExpression {
         : left(left), add(add), right(right) {}
 };
 
-template <typename ParserType>
-bool createAddExpression(std::vector<typename ParserType::Variant> &vec) {
-    if (vec.size() != 3) {
-        return false;
+template <> struct ParserTraits<AddExpression> {
+    template <typename ParserType>
+    static typename ParserType::Variant shift(std::string_view &str) {
+        return {};
     }
-    auto left = std::get_if<IntSymbol>(&vec[0]);
-    auto add = std::get_if<AddSymbol>(&vec[1]);
-    auto right = std::get_if<IntSymbol>(&vec[2]);
-    if (!left || !add || !right) {
-        return false;
+
+    template <typename ParserType>
+    static bool reduce(std::vector<typename ParserType::Variant> &vec) {
+        if (vec.size() != 3) {
+            return false;
+        }
+        auto left = std::get_if<IntSymbol>(&vec[0]);
+        auto add = std::get_if<AddSymbol>(&vec[1]);
+        auto right = std::get_if<IntSymbol>(&vec[2]);
+        if (!left || !add || !right) {
+            return false;
+        }
+        typename ParserType::Variant res = AddExpression{*left, *add, *right};
+        vec.clear();
+        vec.push_back(std::move(res));
+        return true;
     }
-    typename ParserType::Variant res = AddExpression{*left, *add, *right};
-    vec.clear();
-    vec.push_back(std::move(res));
-    return true;
-}
+};
 
 int main() {
     using ParserType = Parser<IntSymbol, AddSymbol, AddExpression>;
 
-    ParserType p{{IntSymbol::shift<ParserType>, AddSymbol::shift<ParserType>},
-                 {createAddExpression<ParserType>}};
+    ParserType p{ParserTraits<IntSymbol>{}, ParserTraits<AddSymbol>{},
+                 ParserTraits<AddExpression>{}};
     auto symbol = p.parse("1+1");
     if (auto expression = std::get_if<AddExpression>(&symbol)) {
         std::cout << expression->left.val << '+' << expression->right.val
