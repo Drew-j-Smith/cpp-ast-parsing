@@ -1,129 +1,132 @@
 #pragma once
 
 #include <array>
-#include <charconv>
 #include <iostream>
+#include <memory>
 #include <string_view>
-#include <system_error>
 #include <variant>
 #include <vector>
 
-template <typename T> struct ParserTraits {
-    template <typename ParserType>
-    static typename ParserType::Variant shift(std::string_view &str);
+std::ostream &operator<<(std::ostream &out, std::monostate) {
+    return out << "monostate";
+}
 
-    template <typename ParserType>
-    static bool reduce(std::vector<typename ParserType::Variant> &vec);
-};
-
-template <typename... Symbols> class Parser {
-public:
-    using Variant = std::variant<std::monostate, Symbols...>;
-    using TerminalFp = Variant (*)(std::string_view &);
-    using RuleFp = bool (*)(std::vector<Variant> &);
-
-private:
-    std::array<TerminalFp, sizeof...(Symbols)> shifters;
-    std::array<RuleFp, sizeof...(Symbols)> reducers;
-
-    constexpr bool reduce(std::vector<Variant> &parseStack) const {
-        for (const auto rule : reducers) {
-            if (rule(parseStack)) {
-                return true;
-            }
-        }
-        return false;
+template <typename Variant>
+void printStack(const std::vector<Variant> &parseStack) {
+    std::cerr << "Parse stack:\n";
+    for (const auto &el : parseStack) {
+        std::visit([](auto &variant) { std::cerr << variant << '\n'; }, el);
     }
+    std::cerr << "\n";
+}
 
-    constexpr bool shift(std::vector<Variant> &parseStack,
-                         std::string_view &str) const {
-        for (const auto shifter : shifters) {
-            auto symbol = shifter(str);
-            if (!std::holds_alternative<std::monostate>(symbol)) {
-                parseStack.push_back(std::move(symbol));
-                return true;
-            }
-        }
-        return false;
-    }
+template <typename Variant> struct ParseResult {
+    Variant variant;
+    std::string_view str;
 
-    static void printParseStack(const std::vector<Variant> &parseStack) {
-        std::cout << "Parse Stack:\n";
-        for (const auto &v : parseStack) {
-            std::visit([](auto &&arg) { std::cout << arg << '\n'; }, v);
+    ParseResult &operator+(ParseResult &&other) {
+        if (!std::holds_alternative<std::monostate>(other.variant)) {
+            str = other.str;
+            variant = std::move(other.variant);
         }
-        std::cout << "\n";
-    }
-
-public:
-    constexpr Parser()
-        : shifters{ParserTraits<Symbols>::template shift<
-              Parser<Symbols...>>...},
-          reducers{
-              ParserTraits<Symbols>::template reduce<Parser<Symbols...>>...} {}
-
-    Variant parse(std::string_view str) const {
-        std::vector<Variant> parseStack;
-        while (str.size() > 0) {
-            printParseStack(parseStack);
-            if (!shift(parseStack, str)) {
-                std::cout << "Error parsing\n";
-                return {};
-            }
-            while (reduce(parseStack))
-                ;
-        }
-        if (parseStack.size() > 1) {
-            std::cout << "incomplete parse\n";
-        }
-        return std::move(parseStack[0]);
+        return *this;
     }
 };
 
-template <typename T, typename ParserType, typename... Params>
-constexpr static bool create(std::vector<typename ParserType::Variant> &vec,
-                             int start) {
-    if (start < 0) {
+template <typename Terminal, typename Variant> struct TerminalTraits {
+    static ParseResult<Variant> shift(std::string_view);
+};
+
+template <typename... Params> struct ConstructorParams {};
+
+template <typename... Params> struct ConstructorTraits {};
+
+template <typename Symbol> struct SymbolTraits {
+    // using Constructors = ConstructorTraits<...>;
+    // using ConstructorsNextSymbol = ConstructorTraits<...>;
+};
+
+template <typename... Args> struct Terminals {};
+
+template <typename... Args> struct Symbols {};
+
+template <typename Variant, typename Symbol, typename... Params,
+          typename... NextParams>
+bool reduce_with_ctor(std::vector<Variant> &parseStack,
+                      const Variant &lookahead, ConstructorParams<Params...>,
+                      ConstructorParams<NextParams...>) {
+    if (sizeof...(Params) > parseStack.size()) {
         return false;
     }
-    int index = start - 1;
-    if ((std::holds_alternative<Params>(
-             vec[static_cast<std::size_t>(++index)]) &&
-         ...)) {
-        index = start - 1;
-        vec[static_cast<std::size_t>(start)] = T{std::move(
-            std::get<Params>(vec[static_cast<std::size_t>(++index)]))...};
-        vec.erase(vec.begin() + start + 1,
-                  vec.begin() + start + sizeof...(Params));
+    if (!((std::holds_alternative<NextParams>(lookahead) || ...) ||
+          std::holds_alternative<std::monostate>(lookahead))) {
+        return false;
+    }
+    std::size_t index = parseStack.size() - sizeof...(Params);
+    if ((std::holds_alternative<Params>(parseStack[index++]) && ...)) {
+        std::size_t start = parseStack.size() - sizeof...(Params);
+        index = parseStack.size() - sizeof...(Params);
+        parseStack[start] =
+            Symbol{std::move(std::get<Params>(parseStack[index++]))...};
+        parseStack.erase(parseStack.begin() + start + 1,
+                         parseStack.begin() + start + sizeof...(Params));
         return true;
     }
     return false;
 }
 
-template <typename T, typename ParserType, typename... Params>
-constexpr static bool create(std::vector<typename ParserType::Variant> &vec) {
-    int start = static_cast<int>(vec.size() - sizeof...(Params));
-    return create<T, ParserType, Params...>(vec, start);
+template <typename Variant, typename Symbol, typename... Ctors,
+          typename... NextParams>
+bool reduce_with_ctors(std::vector<Variant> &parseStack,
+                       const Variant &lookahead, ConstructorTraits<Ctors...>,
+                       ConstructorTraits<NextParams...>) {
+    return (reduce_with_ctor<Variant, Symbol>(parseStack, lookahead, Ctors{},
+                                              NextParams{}) ||
+            ...);
 }
 
-template <typename T, typename ParserType, typename Lookahead,
-          typename... Params>
-constexpr static bool
-create_with_lookahead(std::vector<typename ParserType::Variant> &vec) {
-    int start = static_cast<int>(vec.size() - sizeof...(Params)) - 1;
-    return std::holds_alternative<Lookahead>(vec.back()) &&
-           create<T, ParserType, Params...>(vec, start);
+template <typename Variant, typename Symbol>
+bool reduce(std::vector<Variant> &parseStack, const Variant &lookahead) {
+    return reduce_with_ctors<Variant, Symbol>(
+        parseStack, lookahead, typename SymbolTraits<Symbol>::Constructors{},
+        typename SymbolTraits<Symbol>::ConstructorsNextSymbol{});
 }
 
-template <typename T, typename ParserType, typename Lookbehind,
-          typename... Params>
-constexpr static bool
-create_with_lookbehind(std::vector<typename ParserType::Variant> &vec) {
-    int start = static_cast<int>(vec.size() - sizeof...(Params));
-    if (start - 1 < 0) {
-        return false;
+template <typename Variant, typename... SymbolArgs>
+void reduce_symbols(std::vector<Variant> &parseStack,
+                    const Variant &lookahead) {
+    while (true) {
+        if (!(reduce<Variant, SymbolArgs>(parseStack, lookahead) || ...)) {
+            break;
+        }
     }
-    return std::holds_alternative<Lookbehind>(
-               vec[static_cast<std::size_t>(start - 1)]) &&
-           create<T, ParserType, Params...>(vec, start);
+}
+
+template <typename... TerminalArgs, typename... SymbolArgs>
+auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
+           std::string_view str) {
+    using Variant =
+        std::variant<std::monostate, TerminalArgs..., SymbolArgs...>;
+    std::vector<Variant> parseStack;
+
+    while (!str.empty()) {
+        ParseResult<Variant> parseResults{};
+        (parseResults + ... +
+         TerminalTraits<TerminalArgs, Variant>::shift(str));
+        if (std::holds_alternative<std::monostate>(parseResults.variant)) {
+            throw std::runtime_error{"failed to parse"};
+        }
+        str = parseResults.str;
+
+        reduce_symbols<Variant, SymbolArgs...>(parseStack,
+                                               parseResults.variant);
+        parseStack.push_back(std::move(parseResults.variant));
+    }
+    while (parseStack.size() > 1) {
+        if (!(reduce<Variant, SymbolArgs>(parseStack, std::monostate{}) ||
+              ...)) {
+            throw std::runtime_error{"non-empty parse stack"};
+        }
+    }
+    return std::move(parseStack[0]);
 }
