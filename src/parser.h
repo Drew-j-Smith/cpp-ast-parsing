@@ -7,7 +7,14 @@
 #include <variant>
 #include <vector>
 
-std::ostream &operator<<(std::ostream &out, std::monostate) {
+inline void print_with_indent(std::ostream &out, std::monostate, int indent) {
+    for (int i = 0; i < indent; i++) {
+        out << '\n';
+    }
+    out << "monostate";
+}
+
+inline std::ostream &operator<<(std::ostream &out, std::monostate) {
     return out << "monostate";
 }
 
@@ -125,6 +132,7 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
     while (parseStack.size() > 1) {
         if (!(reduce<Variant, SymbolArgs>(parseStack, std::monostate{}) ||
               ...)) {
+            printStack(parseStack);
             throw std::runtime_error{"non-empty parse stack"};
         }
     }

@@ -30,7 +30,7 @@ struct Identifier {
 template <typename Variant> struct TerminalTraits<Identifier, Variant> {
     static ParseResult<Variant> shift(std::string_view str) {
         std::size_t index = 0;
-        while (index < str.size() && str[index] != '+' && str[index] != '*') {
+        while (index < str.size() && str[index] != '+' && str[index] != '*' && str[index] != '(' && str[index] != ')') {
             ++index;
         }
         if (index == 0) {
@@ -41,29 +41,55 @@ template <typename Variant> struct TerminalTraits<Identifier, Variant> {
     }
 };
 
+struct AddExpression;
+std::ostream &operator<<(std::ostream &out, const AddExpression &a);
+
+struct Expression {
+    std::unique_ptr<AddExpression> a;
+    Identifier i;
+    explicit Expression(Identifier i) : i(i) {}
+    Expression(TermialCharacter<'('>, AddExpression&& a, TermialCharacter<')'>)
+        : a(std::make_unique<AddExpression>(std::move(a))) {}
+    friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
+        if (e.a) {
+            return out << "Expression(" << *e.a << ")";
+        }
+        return out << "Expression(" << e.i << ")";
+    }
+};
+
+template <> struct SymbolTraits<Expression> {
+    using Constructors = ConstructorTraits<
+        ConstructorParams<Identifier>,
+        ConstructorParams<TermialCharacter<'('>, AddExpression, TermialCharacter<')'>>>;
+    using ConstructorsNextSymbol = ConstructorTraits<
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>>>;
+};
+
 struct MultExpression {
     std::unique_ptr<MultExpression> m;
-    Identifier i;
-    MultExpression(Identifier i) : i(i) {}
-    MultExpression(MultExpression m, TermialCharacter<'*'>, Identifier i)
-        : m(std::make_unique<MultExpression>(std::move(m))), i(i) {}
+    Expression e;
+    MultExpression(Expression e) : e(std::move(e)) {}
+    MultExpression(MultExpression m, TermialCharacter<'*'>, Expression e)
+        : m(std::make_unique<MultExpression>(std::move(m))), e(std::move(e)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const MultExpression &m) {
         if (m.m) {
-            return out << "MultExpression(" << *m.m << "*" << m.i << ")";
+            return out << "MultExpression(" << *m.m << "*" << m.e << ")";
         }
-        return out << "MultExpression(" << m.i << ")";
+        return out << "MultExpression(" << m.e << ")";
     }
 };
 
 template <> struct SymbolTraits<MultExpression> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<MultExpression, TermialCharacter<'*'>, Identifier>,
-        ConstructorParams<Identifier>>;
+        ConstructorParams<MultExpression, TermialCharacter<'*'>, Expression>,
+        ConstructorParams<Expression>>;
     using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>>>;
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>>;
 };
 
 struct AddExpression {
@@ -88,12 +114,12 @@ template <> struct SymbolTraits<AddExpression> {
         ConstructorParams<AddExpression, TermialCharacter<'+'>, MultExpression>,
         ConstructorParams<MultExpression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<ConstructorParams<TermialCharacter<'+'>>,
-                          ConstructorParams<TermialCharacter<'+'>>>;
+        ConstructorTraits<ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>,
+                          ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>>;
 };
 
 inline auto parse_expression(std::string_view s) {
     return parse(
-        Terminals<Identifier, TermialCharacter<'+'>, TermialCharacter<'*'>>{},
-        Symbols<MultExpression, AddExpression>{}, s);
+        Terminals<Identifier, TermialCharacter<'+'>, TermialCharacter<'*'>, TermialCharacter<'('>, TermialCharacter<')'>>{},
+        Symbols<Expression, MultExpression, AddExpression>{}, s);
 }
