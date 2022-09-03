@@ -7,13 +7,6 @@
 #include <variant>
 #include <vector>
 
-inline void print_with_indent(std::ostream &out, std::monostate, int indent) {
-    for (int i = 0; i < indent; i++) {
-        out << '\n';
-    }
-    out << "monostate";
-}
-
 inline std::ostream &operator<<(std::ostream &out, std::monostate) {
     return out << "monostate";
 }
