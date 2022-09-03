@@ -49,22 +49,24 @@ double evaluate_add_expression(const AddExpression &a,
                                const std::map<std::string, double> &variables);
 
 struct Expression {
-    std::unique_ptr<AddExpression> a;
-    Identifier i;
-    explicit Expression(Identifier i) : i(i) {}
+    std::variant<std::unique_ptr<AddExpression>, Identifier> data;
+    explicit Expression(Identifier i) : data(i) {}
     Expression(TermialCharacter<'('>, AddExpression &&a, TermialCharacter<')'>)
-        : a(std::make_unique<AddExpression>(std::move(a))) {}
+        : data(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
-        if (e.a) {
-            return out << "Expression(" << *e.a << ")";
+        if (std::holds_alternative<Identifier>(e.data)) {
+            return out << "Expression(" << std::get<Identifier>(e.data).str
+                       << ")";
         }
-        return out << "Expression(" << e.i << ")";
+        return out << "Expression("
+                   << *std::get<std::unique_ptr<AddExpression>>(e.data) << ")";
     }
     double evaluate(const std::map<std::string, double> &variables) const {
-        if (a) {
-            return evaluate_add_expression(*a, variables);
+        if (std::holds_alternative<Identifier>(data)) {
+            return variables.at(std::string{std::get<Identifier>(data).str});
         } else {
-            return variables.at(std::string{i.str});
+            return evaluate_add_expression(
+                *std::get<std::unique_ptr<AddExpression>>(data), variables);
         }
     }
 };
