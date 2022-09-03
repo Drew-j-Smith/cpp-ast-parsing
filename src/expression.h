@@ -31,7 +31,8 @@ struct Identifier {
 template <typename Variant> struct TerminalTraits<Identifier, Variant> {
     static ParseResult<Variant> shift(std::string_view str) {
         std::size_t index = 0;
-        while (index < str.size() && str[index] != '+' && str[index] != '*' && str[index] != '(' && str[index] != ')') {
+        while (index < str.size() && str[index] != '+' && str[index] != '*' &&
+               str[index] != '(' && str[index] != ')' && str[index] != '=') {
             ++index;
         }
         if (index == 0) {
@@ -44,13 +45,14 @@ template <typename Variant> struct TerminalTraits<Identifier, Variant> {
 
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
-double evaluate_add_expression(const AddExpression& a, const std::map<std::string_view, double>& variables);
+double evaluate_add_expression(const AddExpression &a,
+                               const std::map<std::string, double> &variables);
 
 struct Expression {
     std::unique_ptr<AddExpression> a;
     Identifier i;
     explicit Expression(Identifier i) : i(i) {}
-    Expression(TermialCharacter<'('>, AddExpression&& a, TermialCharacter<')'>)
+    Expression(TermialCharacter<'('>, AddExpression &&a, TermialCharacter<')'>)
         : a(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
         if (e.a) {
@@ -58,11 +60,11 @@ struct Expression {
         }
         return out << "Expression(" << e.i << ")";
     }
-    double evaluate(const std::map<std::string_view, double>& variables) const {
+    double evaluate(const std::map<std::string, double> &variables) const {
         if (a) {
             return evaluate_add_expression(*a, variables);
         } else {
-            return variables.at(i.str);
+            return variables.at(std::string{i.str});
         }
     }
 };
@@ -70,9 +72,11 @@ struct Expression {
 template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier>,
-        ConstructorParams<TermialCharacter<'('>, AddExpression, TermialCharacter<')'>>>;
+        ConstructorParams<TermialCharacter<'('>, AddExpression,
+                          TermialCharacter<')'>>>;
     using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>,
         ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>>>;
 };
 
@@ -91,7 +95,7 @@ struct MultExpression {
         return out << "MultExpression(" << m.e << ")";
     }
 
-    double evaluate(const std::map<std::string_view, double>& variables) const {
+    double evaluate(const std::map<std::string, double> &variables) const {
         if (m) {
             return m->evaluate(variables) * e.evaluate(variables);
         } else {
@@ -105,8 +109,10 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<MultExpression, TermialCharacter<'*'>, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>, TermialCharacter<')'>>>;
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>>;
 };
 
 struct AddExpression {
@@ -124,7 +130,7 @@ struct AddExpression {
         }
         return out << "AddExpression(" << *a.m << ")";
     }
-    double evaluate(const std::map<std::string_view, double>& variables) const {
+    double evaluate(const std::map<std::string, double> &variables) const {
         if (a) {
             return a->evaluate(variables) + m->evaluate(variables);
         } else {
@@ -133,7 +139,8 @@ struct AddExpression {
     }
 };
 
-double evaluate_add_expression(const AddExpression& a, const std::map<std::string_view, double>& variables) {
+double evaluate_add_expression(const AddExpression &a,
+                               const std::map<std::string, double> &variables) {
     return a.evaluate(variables);
 }
 
@@ -141,13 +148,7 @@ template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<AddExpression, TermialCharacter<'+'>, MultExpression>,
         ConstructorParams<MultExpression>>;
-    using ConstructorsNextSymbol =
-        ConstructorTraits<ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>,
-                          ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>>;
+    using ConstructorsNextSymbol = ConstructorTraits<
+        ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>>;
 };
-
-inline auto parse_expression(std::string_view s) {
-    return parse(
-        Terminals<Identifier, TermialCharacter<'+'>, TermialCharacter<'*'>, TermialCharacter<'('>, TermialCharacter<')'>>{},
-        Symbols<Expression, MultExpression, AddExpression>{}, s);
-}
