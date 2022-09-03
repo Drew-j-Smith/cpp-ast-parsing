@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser.h"
+#include <map>
 
 template <char terminal> struct TermialCharacter {};
 
@@ -43,6 +44,7 @@ template <typename Variant> struct TerminalTraits<Identifier, Variant> {
 
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
+double evaluate_add_expression(const AddExpression& a, const std::map<std::string_view, double>& variables);
 
 struct Expression {
     std::unique_ptr<AddExpression> a;
@@ -55,6 +57,13 @@ struct Expression {
             return out << "Expression(" << *e.a << ")";
         }
         return out << "Expression(" << e.i << ")";
+    }
+    double evaluate(const std::map<std::string_view, double>& variables) const {
+        if (a) {
+            return evaluate_add_expression(*a, variables);
+        } else {
+            return variables.at(i.str);
+        }
     }
 };
 
@@ -80,6 +89,14 @@ struct MultExpression {
             return out << "MultExpression(" << *m.m << "*" << m.e << ")";
         }
         return out << "MultExpression(" << m.e << ")";
+    }
+
+    double evaluate(const std::map<std::string_view, double>& variables) const {
+        if (m) {
+            return m->evaluate(variables) * e.evaluate(variables);
+        } else {
+            return e.evaluate(variables);
+        }
     }
 };
 
@@ -107,7 +124,18 @@ struct AddExpression {
         }
         return out << "AddExpression(" << *a.m << ")";
     }
+    double evaluate(const std::map<std::string_view, double>& variables) const {
+        if (a) {
+            return a->evaluate(variables) + m->evaluate(variables);
+        } else {
+            return m->evaluate(variables);
+        }
+    }
 };
+
+double evaluate_add_expression(const AddExpression& a, const std::map<std::string_view, double>& variables) {
+    return a.evaluate(variables);
+}
 
 template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<

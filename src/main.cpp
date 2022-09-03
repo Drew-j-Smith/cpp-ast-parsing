@@ -3,7 +3,25 @@
 #include "parser.h"
 
 int main() {
-    auto p = parse_expression("var1+var2*var3+((var4+var5)*var6)");
-    std::visit([](auto &variant) { std::cout << variant << '\n'; }, p);
-    std::cout << "success!\n";
+    std::map<std::string_view, double> variables{{"var1", 1}, {"var2", 2}, {"var3", 3}, {"var4", 4}, {"var5", 5}, {"var6", 6}};
+
+    std::string s;
+    try {
+        while (true) {
+            std::cout << "Enter expression\n";
+            std::getline(std::cin, s);
+            auto p = parse_expression(s);
+            if (std::holds_alternative<AddExpression>(p)) {
+                std::cout << std::get<AddExpression>(p).evaluate(variables) << '\n';
+            } else if (std::holds_alternative<MultExpression>(p)) {
+                std::cout << std::get<MultExpression>(p).evaluate(variables) << '\n';
+            } else {
+                std::cerr << "Unknown value\n";
+                break;
+            }
+        }
+    }
+    catch (std::exception& e) {
+        std::cout << e.what();
+    }
 }
