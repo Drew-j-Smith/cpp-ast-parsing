@@ -68,8 +68,10 @@ bool reduce_with_ctor(std::vector<Variant> &parseStack,
         index = parseStack.size() - sizeof...(Params);
         parseStack[start] =
             Symbol{std::move(std::get<Params>(parseStack[index++]))...};
-        parseStack.erase(parseStack.begin() + start + 1,
-                         parseStack.begin() + start + sizeof...(Params));
+        parseStack.erase(
+            parseStack.begin() + static_cast<std::ptrdiff_t>(start + 1),
+            parseStack.begin() +
+                static_cast<std::ptrdiff_t>(start + sizeof...(Params)));
         return true;
     }
     return false;

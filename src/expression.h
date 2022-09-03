@@ -90,11 +90,12 @@ struct MultExpression {
         : m(std::make_unique<MultExpression>(std::move(m))), e(std::move(e)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
-                                    const MultExpression &m) {
-        if (m.m) {
-            return out << "MultExpression(" << *m.m << "*" << m.e << ")";
+                                    const MultExpression &other) {
+        if (other.m) {
+            return out << "MultExpression(" << *other.m << "*" << other.e
+                       << ")";
         }
-        return out << "MultExpression(" << m.e << ")";
+        return out << "MultExpression(" << other.e << ")";
     }
 
     double evaluate(const std::map<std::string, double> &variables) const {
@@ -126,11 +127,13 @@ struct AddExpression {
         : a(std::make_unique<AddExpression>(std::move(a))),
           m(std::make_unique<MultExpression>(std::move(m))) {}
 
-    friend std::ostream &operator<<(std::ostream &out, const AddExpression &a) {
-        if (a.a) {
-            return out << "AddExpression(" << *a.a << "+" << *a.m << ")";
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const AddExpression &other) {
+        if (other.a) {
+            return out << "AddExpression(" << *other.a << "+" << *other.m
+                       << ")";
         }
-        return out << "AddExpression(" << *a.m << ")";
+        return out << "AddExpression(" << *other.m << ")";
     }
     double evaluate(const std::map<std::string, double> &variables) const {
         if (a) {

@@ -7,10 +7,11 @@ struct Assignment {
     Identifier i;
     std::unique_ptr<AddExpression> a;
     Assignment(Identifier i, TermialCharacter<'='>, AddExpression a)
-        : a(std::make_unique<AddExpression>(std::move(a))), i(i) {}
+        : i(i), a(std::make_unique<AddExpression>(std::move(a))) {}
 
-    friend std::ostream &operator<<(std::ostream &out, const Assignment &a) {
-        return out << "Assignment(" << a.i << "=" << *a.a << ")";
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const Assignment &other) {
+        return out << "Assignment(" << other.i << "=" << *other.a << ")";
     }
 };
 
