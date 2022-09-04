@@ -124,9 +124,12 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
                                                parseResults.variant);
         parseStack.push_back(std::move(parseResults.variant));
     }
-    while (parseStack.size() > 1) {
+    while (true) {
         if (!(reduce<Variant, SymbolArgs>(parseStack, std::monostate{}) ||
               ...)) {
+            if (parseStack.size() == 1) {
+                break;
+            }
             printStack(parseStack);
             throw std::runtime_error{"non-empty parse stack"};
         }

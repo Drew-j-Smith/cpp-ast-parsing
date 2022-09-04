@@ -23,8 +23,8 @@ template <> struct SymbolTraits<Assignment> {
 
 inline auto parse_expression(std::string_view s) {
     return parse(
-        Terminals<Identifier, TermialCharacter<'+'>, TermialCharacter<'*'>,
-                  TermialCharacter<'('>, TermialCharacter<')'>,
-                  TermialCharacter<'='>>{},
+        Terminals<Identifier, Double, TermialCharacter<'+'>,
+                  TermialCharacter<'*'>, TermialCharacter<'('>,
+                  TermialCharacter<')'>, TermialCharacter<'='>>{},
         Symbols<Expression, MultExpression, AddExpression, Assignment>{}, s);
 }

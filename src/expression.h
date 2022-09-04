@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser.h"
+#include <charconv>
 #include <map>
 
 template <char terminal> struct TermialCharacter {};
@@ -31,8 +32,12 @@ struct Identifier {
 template <typename Variant> struct TerminalTraits<Identifier, Variant> {
     static ParseResult<Variant> shift(std::string_view str) {
         std::size_t index = 0;
+        if (std::isdigit(str[0])) {
+            return {};
+        }
         while (index < str.size() && str[index] != '+' && str[index] != '*' &&
-               str[index] != '(' && str[index] != ')' && str[index] != '=') {
+               str[index] != '(' && str[index] != ')' && str[index] != '=' &&
+               !std::isspace(str[index])) {
             ++index;
         }
         if (index == 0) {
@@ -43,20 +48,45 @@ template <typename Variant> struct TerminalTraits<Identifier, Variant> {
     }
 };
 
+struct Double {
+    double data;
+    friend std::ostream &operator<<(std::ostream &out, const Double &d) {
+        return out << "Double(" << d.data << ")";
+    }
+};
+
+template <typename Variant> struct TerminalTraits<Double, Variant> {
+    static ParseResult<Variant> shift(std::string_view str) {
+        double result;
+        auto [ptr,
+              ec]{std::from_chars(str.data(), str.data() + str.size(), result)};
+        if (ec == std::errc{}) {
+            return {Double{result},
+                    std::string_view{ptr, static_cast<std::size_t>(
+                                              str.data() + str.size() - ptr)}};
+        } else {
+            return {};
+        }
+    }
+};
+
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
 double evaluate_add_expression(const AddExpression &a,
                                const std::map<std::string, double> &variables);
 
 struct Expression {
-    std::variant<std::unique_ptr<AddExpression>, Identifier> data;
+    std::variant<std::unique_ptr<AddExpression>, Identifier, Double> data;
     explicit Expression(Identifier i) : data(i) {}
+    explicit Expression(Double d) : data(d) {}
     Expression(TermialCharacter<'('>, AddExpression &&a, TermialCharacter<')'>)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
         if (std::holds_alternative<Identifier>(e.data)) {
             return out << "Expression(" << std::get<Identifier>(e.data).str
                        << ")";
+        } else if (std::holds_alternative<Double>(e.data)) {
+            return out << "Expression(" << std::get<Double>(e.data).data << ")";
         }
         return out << "Expression("
                    << *std::get<std::unique_ptr<AddExpression>>(e.data) << ")";
@@ -64,6 +94,8 @@ struct Expression {
     double evaluate(const std::map<std::string, double> &variables) const {
         if (std::holds_alternative<Identifier>(data)) {
             return variables.at(std::string{std::get<Identifier>(data).str});
+        } else if (std::holds_alternative<Double>(data)) {
+            return std::get<Double>(data).data;
         } else {
             return evaluate_add_expression(
                 *std::get<std::unique_ptr<AddExpression>>(data), variables);
@@ -73,13 +105,16 @@ struct Expression {
 
 template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<Identifier>,
+        ConstructorParams<Identifier>, ConstructorParams<Double>,
         ConstructorParams<TermialCharacter<'('>, AddExpression,
                           TermialCharacter<')'>>>;
     using ConstructorsNextSymbol = ConstructorTraits<
         ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
                           TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>>>;
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>,
+        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>>;
 };
 
 struct MultExpression {
