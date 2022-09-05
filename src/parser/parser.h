@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "reduce.h"
 #include "util.h"
 
 template <typename... TerminalArgs, typename... SymbolArgs>

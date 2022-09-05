@@ -1,3 +1,3 @@
 #pragma once
 
-#include "parser/reduce.h"
+#include "parser/parser.h"
