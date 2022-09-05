@@ -39,7 +39,7 @@ template <typename... Params> struct ConstructorParams {};
 template <typename... Params> struct ConstructorTraits {};
 
 template <typename Symbol> struct SymbolTraits {
-    // using Constructors = ConstructorTraits<...>;
+    using Constructors = ConstructorTraits<>;
     // using ConstructorsNextSymbol = ConstructorTraits<...>;
 };
 
