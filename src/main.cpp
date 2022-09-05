@@ -1,7 +1,5 @@
 
-#include "assignment.h"
-#include "expression.h"
-#include "parser.h"
+#include "script/script.h"
 #include <string>
 
 int main() {
