@@ -18,5 +18,5 @@ struct Assignment {
 template <> struct SymbolTraits<Assignment> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier, TermialCharacter<'='>, AddExpression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<ConstructorParams<>>;
+    using ConstructorsNextSymbol = ConstructorTraits<>;
 };

@@ -66,13 +66,9 @@ template <> struct SymbolTraits<Expression> {
         ConstructorParams<Identifier>, ConstructorParams<Double>,
         ConstructorParams<TermialCharacter<'('>, AddExpression,
                           TermialCharacter<')'>>>;
-    using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>;
 };
 
 struct MultExpression {
@@ -104,11 +100,9 @@ template <> struct SymbolTraits<MultExpression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<MultExpression, TermialCharacter<'*'>, Expression>,
         ConstructorParams<Expression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<TermialCharacter<'*'>, TermialCharacter<'+'>,
+                          TermialCharacter<')'>>;
 };
 
 struct AddExpression {
@@ -146,7 +140,6 @@ template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<AddExpression, TermialCharacter<'+'>, MultExpression>,
         ConstructorParams<MultExpression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<
-        ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>,
-        ConstructorParams<TermialCharacter<'+'>, TermialCharacter<')'>>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<TermialCharacter<'+'>, TermialCharacter<')'>>;
 };

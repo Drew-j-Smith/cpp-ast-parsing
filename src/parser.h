@@ -54,7 +54,7 @@ template <typename Variant, typename Symbol, typename... Params,
           typename... NextParams>
 bool reduce_with_ctor(std::vector<Variant> &parseStack,
                       const Variant &lookahead, ConstructorParams<Params...>,
-                      ConstructorParams<NextParams...>) {
+                      ConstructorTraits<NextParams...>) {
     if (sizeof...(Params) > parseStack.size()) {
         return false;
     }
@@ -81,9 +81,9 @@ template <typename Variant, typename Symbol, typename... Ctors,
           typename... NextParams>
 bool reduce_with_ctors(std::vector<Variant> &parseStack,
                        const Variant &lookahead, ConstructorTraits<Ctors...>,
-                       ConstructorTraits<NextParams...>) {
+                       ConstructorTraits<NextParams...> nextParams) {
     return (reduce_with_ctor<Variant, Symbol>(parseStack, lookahead, Ctors{},
-                                              NextParams{}) ||
+                                              nextParams) ||
             ...);
 }
 
