@@ -1,52 +1,10 @@
 #pragma once
 
+#include "identifier.h"
 #include "parser.h"
+#include "terminal_char.h"
 #include <charconv>
 #include <map>
-
-template <char terminal> struct TermialCharacter {};
-
-template <typename Variant, char terminal>
-struct TerminalTraits<TermialCharacter<terminal>, Variant> {
-    static ParseResult<Variant> shift(std::string_view str) {
-        if (str[0] == terminal) {
-            return {TermialCharacter<terminal>{},
-                    std::string_view{str.data() + 1, str.size() - 1}};
-        }
-        return {};
-    }
-};
-
-template <char c>
-std::ostream &operator<<(std::ostream &out, TermialCharacter<c>) {
-    return out << c;
-}
-
-struct Identifier {
-    std::string_view str;
-    friend std::ostream &operator<<(std::ostream &out, const Identifier &i) {
-        return out << "Identifier(" << i.str << ")";
-    }
-};
-
-template <typename Variant> struct TerminalTraits<Identifier, Variant> {
-    static ParseResult<Variant> shift(std::string_view str) {
-        std::size_t index = 0;
-        if (std::isdigit(str[0])) {
-            return {};
-        }
-        while (index < str.size() && str[index] != '+' && str[index] != '*' &&
-               str[index] != '(' && str[index] != ')' && str[index] != '=' &&
-               !std::isspace(str[index])) {
-            ++index;
-        }
-        if (index == 0) {
-            return {};
-        }
-        return {Identifier{{str.data(), index}},
-                std::string_view{str.data() + index, str.size() - index}};
-    }
-};
 
 struct Double {
     double data;
