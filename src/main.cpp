@@ -1,4 +1,5 @@
 
+#include "parser/lookahead.h"
 #include "script/script.h"
 #include <string>
 
