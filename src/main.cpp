@@ -2,35 +2,12 @@
 #include <ctre.hpp>
 #include <iostream>
 #include <variant>
-#include <vector>
 
 struct token {
-    std::string_view c;
+    std::string_view str;
 };
 
 template <size_t N> struct fixed_string { char str[N]{}; };
-
-template <typename... Tokens> constexpr auto gen_regex() {
-    fixed_string<(Tokens::regex.size() + ...) + sizeof...(Tokens) * 3> res{};
-    auto str_itr = std::begin(res.str);
-    (
-        [&]() {
-            *str_itr = '(';
-            ++str_itr;
-            for (auto c : Tokens::regex) {
-                *str_itr = c;
-                ++str_itr;
-            }
-            *str_itr = ')';
-            ++str_itr;
-            *str_itr = '|';
-            ++str_itr;
-        }(),
-        ...);
-    --str_itr;
-    *str_itr = '\0';
-    return res;
-}
 
 template <typename Variant, typename CurrToken, typename... Tokens>
 constexpr Variant get_token(const auto &match) {
@@ -46,25 +23,50 @@ constexpr Variant get_token(const auto &match) {
     }
 }
 
-template <typename Variant, typename IterType> struct tokenize_result {
-    std::vector<Variant> token_vec;
-    IterType end;
-};
-
-template <typename... tokens> constexpr auto tokenize(std::string_view v) {
-    using Variant = std::variant<tokens...>;
-    std::vector<Variant> token_vec;
-    auto end = v.begin();
-
-    auto token_range = ctre::tokenize<gen_regex<tokens...>().str>(v);
-    for (const auto &match : token_range) {
-        if (match) {
-            token_vec.push_back(get_token<Variant, tokens...>(match));
-        }
-        end = match.end();
+template <typename... Tokens> class lexer {
+private:
+    constexpr static auto gen_regex() {
+        fixed_string<(Tokens::regex.size() + ...) + sizeof...(Tokens) * 3>
+            res{};
+        auto str_itr = std::begin(res.str);
+        (
+            [&]() {
+                *(str_itr++) = '(';
+                for (auto c : Tokens::regex) {
+                    *(str_itr++) = c;
+                }
+                *(str_itr++) = ')';
+                *(str_itr++) = '|';
+            }(),
+            ...);
+        *(--str_itr) = '\0';
+        return res;
     }
-    return tokenize_result<Variant, decltype(end)>{token_vec, end};
-}
+
+    constexpr static auto regex = gen_regex();
+    using MatchType = decltype(ctre::tokenize<regex.str>(std::string_view{""}));
+    using IterBegin =
+        decltype(ctre::tokenize<regex.str>(std::string_view{""}).begin());
+    using Variant = std::variant<Tokens...>;
+
+    MatchType tokens;
+    IterBegin it;
+    const char *end_;
+
+public:
+    lexer(std::string_view str)
+        : tokens(ctre::tokenize<regex.str>(str)), it(tokens.begin()),
+          end_((*it).to_view().data()) {}
+
+    Variant next() {
+        end_ = (*it).to_view().data() + (*it).to_view().size();
+        return get_token<Variant, Tokens...>(*(it++));
+    }
+
+    bool hasNext() { return it != tokens.end(); }
+
+    auto end() { return end_; }
+};
 
 struct identifier : public token {
     constexpr static ctll::fixed_string capture_name = "identifier";
@@ -78,11 +80,11 @@ struct number : public token {
 
 int main() {
     std::string_view str = "test\t\n test 89 ";
-    auto [tokens, end] = tokenize<identifier, number>(str);
-    if (str.end() != end) {
-        std::cout << "Invalid token at: " << end - str.begin() << '\n';
+    lexer<identifier, number> l{str};
+    while (l.hasNext()) {
+        std::visit([](auto &&arg) { std::cout << arg.str << '.'; }, l.next());
     }
-    for (auto item : tokens) {
-        std::visit([](auto &&arg) { std::cout << arg.c << '.'; }, item);
+    if (l.end() != str.data() + str.size()) {
+        std::cout << "incomplete parse";
     }
 }
