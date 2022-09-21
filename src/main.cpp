@@ -50,22 +50,30 @@ private:
     using Variant = std::variant<Tokens...>;
 
     MatchType tokens;
-    IterBegin it;
-    const char *end_;
 
 public:
-    lexer(std::string_view str)
-        : tokens(ctre::tokenize<regex.str>(str)), it(tokens.begin()),
-          end_((*it).to_view().data()) {}
+    struct EndIterator {};
+    struct BeginIterator {
+        IterBegin it;
+        constexpr auto operator*() {
+            return get_token<Variant, Tokens...>(*it);
+        }
+        constexpr auto operator++() { return ++it; }
+        constexpr auto operator++(int) { return it++; }
+        constexpr auto operator==(EndIterator) {
+            return it == ctre::regex_end_iterator{};
+        }
+        constexpr auto operator!=(EndIterator) {
+            return it != ctre::regex_end_iterator{};
+        }
+    };
 
-    Variant next() {
-        end_ = (*it).to_view().data() + (*it).to_view().size();
-        return get_token<Variant, Tokens...>(*(it++));
-    }
+    constexpr lexer(std::string_view str)
+        : tokens(ctre::tokenize<regex.str>(str)) {}
 
-    bool hasNext() { return it != tokens.end(); }
+    constexpr auto begin() { return BeginIterator{tokens.begin()}; }
 
-    auto end() { return end_; }
+    constexpr auto end() { return EndIterator{}; }
 };
 
 struct identifier : public token {
@@ -79,12 +87,17 @@ struct number : public token {
 };
 
 int main() {
-    std::string_view str = "test\t\n test 89 ";
-    lexer<identifier, number> l{str};
-    while (l.hasNext()) {
-        std::visit([](auto &&arg) { std::cout << arg.str << '.'; }, l.next());
+    std::string_view str = "test\t\n test 89";
+    const char *end = str.data();
+    for (const auto token : lexer<identifier, number>{str}) {
+        std::visit(
+            [&](auto &&arg) {
+                std::cout << arg.str << '.';
+                end = arg.str.data() + arg.str.size();
+            },
+            token);
     }
-    if (l.end() != str.data() + str.size()) {
+    if (end != str.data() + str.size()) {
         std::cout << "incomplete parse";
     }
 }
