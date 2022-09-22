@@ -6,26 +6,30 @@
 #include <charconv>
 #include <map>
 
+struct DoubleStr : public token {
+    constexpr static ctll::fixed_string capture_name = "number";
+    constexpr static std::string_view regex = "\\s*(?<number>[0-9]+)\\s*";
+};
+
 struct Double {
     double data;
+    Double(DoubleStr doubleStr) {
+        auto [ptr, ec]{
+            std::from_chars(doubleStr.str.data(),
+                            doubleStr.str.data() + doubleStr.str.size(), data)};
+        if (ec != std::errc{}) {
+            throw std::runtime_error{"Double parse failed? what?"};
+        }
+    }
     friend std::ostream &operator<<(std::ostream &out, const Double &d) {
         return out << "Double(" << d.data << ")";
     }
 };
 
-template <typename Variant> struct TerminalTraits<Double, Variant> {
-    static ParseResult<Variant> shift(std::string_view str) {
-        double result;
-        auto [ptr,
-              ec]{std::from_chars(str.data(), str.data() + str.size(), result)};
-        if (ec == std::errc{}) {
-            return {Double{result},
-                    std::string_view{ptr, static_cast<std::size_t>(
-                                              str.data() + str.size() - ptr)}};
-        } else {
-            return {};
-        }
-    }
+template <> struct SymbolTraits<Double> {
+    using Constructors = ConstructorTraits<ConstructorParams<DoubleStr>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
 };
 
 struct AddExpression;
@@ -37,7 +41,7 @@ struct Expression {
     std::variant<std::unique_ptr<AddExpression>, Identifier, Double> data;
     explicit Expression(Identifier i) : data(i) {}
     explicit Expression(Double d) : data(d) {}
-    Expression(TermialCharacter<'('>, AddExpression &&a, TermialCharacter<')'>)
+    Expression(OpenParenToken, AddExpression &&a, CloseParenToken)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
         if (std::holds_alternative<Identifier>(e.data)) {
@@ -64,18 +68,16 @@ struct Expression {
 template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier>, ConstructorParams<Double>,
-        ConstructorParams<TermialCharacter<'('>, AddExpression,
-                          TermialCharacter<')'>>>;
+        ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
 };
 
 struct MultExpression {
     std::unique_ptr<MultExpression> m;
     Expression e;
     MultExpression(Expression e) : e(std::move(e)) {}
-    MultExpression(MultExpression m, TermialCharacter<'*'>, Expression e)
+    MultExpression(MultExpression m, MultToken, Expression e)
         : m(std::make_unique<MultExpression>(std::move(m))), e(std::move(e)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
@@ -98,11 +100,10 @@ struct MultExpression {
 
 template <> struct SymbolTraits<MultExpression> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<MultExpression, TermialCharacter<'*'>, Expression>,
+        ConstructorParams<MultExpression, MultToken, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<TermialCharacter<'*'>, TermialCharacter<'+'>,
-                          TermialCharacter<')'>>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
 };
 
 struct AddExpression {
@@ -110,7 +111,7 @@ struct AddExpression {
     std::unique_ptr<MultExpression> m;
     AddExpression(MultExpression m)
         : m(std::make_unique<MultExpression>(std::move(m))) {}
-    AddExpression(AddExpression a, TermialCharacter<'+'>, MultExpression m)
+    AddExpression(AddExpression a, AddToken, MultExpression m)
         : a(std::make_unique<AddExpression>(std::move(a))),
           m(std::make_unique<MultExpression>(std::move(m))) {}
 
@@ -138,8 +139,7 @@ double evaluate_add_expression(const AddExpression &a,
 
 template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<AddExpression, TermialCharacter<'+'>, MultExpression>,
+        ConstructorParams<AddExpression, AddToken, MultExpression>,
         ConstructorParams<MultExpression>>;
-    using ConstructorsNextSymbol =
-        ConstructorTraits<TermialCharacter<'+'>, TermialCharacter<')'>>;
+    using ConstructorsNextSymbol = ConstructorTraits<AddToken, CloseParenToken>;
 };

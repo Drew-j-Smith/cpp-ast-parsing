@@ -7,6 +7,7 @@
 #include <variant>
 #include <vector>
 
+#include "lexer.h"
 #include "reduce.h"
 #include "util.h"
 
@@ -17,18 +18,20 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
         std::variant<std::monostate, TerminalArgs..., SymbolArgs...>;
     std::vector<Variant> parseStack;
 
-    while (!str.empty()) {
-        ParseResult<Variant> parseResults{};
-        (parseResults + ... +
-         TerminalTraits<TerminalArgs, Variant>::shift(str));
-        if (std::holds_alternative<std::monostate>(parseResults.variant)) {
-            throw std::runtime_error{"failed to parse"};
-        }
-        str = parseResults.str;
-
-        reduce_symbols<Variant, SymbolArgs...>(parseStack,
-                                               parseResults.variant);
-        parseStack.push_back(std::move(parseResults.variant));
+    const char *end = str.data();
+    for (const auto token : lexer<TerminalArgs...>{str}) {
+        Variant lookahead;
+        std::visit(
+            [&](auto &&arg) {
+                lookahead = arg;
+                end = arg.str.data() + arg.str.size();
+            },
+            token);
+        reduce_symbols<Variant, SymbolArgs...>(parseStack, lookahead);
+        parseStack.push_back(std::move(lookahead));
+    }
+    if (end != str.data() + str.size()) {
+        throw std::runtime_error{"incomplete parse"};
     }
     while (true) {
         if (!(reduce<Variant, SymbolArgs>(parseStack, std::monostate{}) ||

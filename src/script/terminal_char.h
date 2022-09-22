@@ -3,20 +3,27 @@
 #include "parser.h"
 #include <iostream>
 
-template <char terminal> struct TermialCharacter {};
-
-template <typename Variant, char terminal>
-struct TerminalTraits<TermialCharacter<terminal>, Variant> {
-    static ParseResult<Variant> shift(std::string_view str) {
-        if (str[0] == terminal) {
-            return {TermialCharacter<terminal>{},
-                    std::string_view{str.data() + 1, str.size() - 1}};
-        }
-        return {};
-    }
+struct OpenParenToken : public token {
+    constexpr static ctll::fixed_string capture_name = "OpenParen";
+    constexpr static std::string_view regex = "(?<OpenParen>\\()";
 };
 
-template <char c>
-std::ostream &operator<<(std::ostream &out, TermialCharacter<c>) {
-    return out << c;
-}
+struct CloseParenToken : public token {
+    constexpr static ctll::fixed_string capture_name = "CloseParen";
+    constexpr static std::string_view regex = "(?<CloseParen>\\))";
+};
+
+struct MultToken : public token {
+    constexpr static ctll::fixed_string capture_name = "Mult";
+    constexpr static std::string_view regex = "(?<Mult>\\*)";
+};
+
+struct AddToken : public token {
+    constexpr static ctll::fixed_string capture_name = "Add";
+    constexpr static std::string_view regex = "(?<Add>\\+)";
+};
+
+struct EqlToken : public token {
+    constexpr static ctll::fixed_string capture_name = "Eql";
+    constexpr static std::string_view regex = "(?<Eql>=)";
+};

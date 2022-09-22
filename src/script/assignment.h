@@ -6,7 +6,7 @@
 struct Assignment {
     Identifier i;
     std::unique_ptr<AddExpression> a;
-    Assignment(Identifier i, TermialCharacter<'='>, AddExpression a)
+    Assignment(Identifier i, EqlToken, AddExpression a)
         : i(i), a(std::make_unique<AddExpression>(std::move(a))) {}
 
     friend std::ostream &operator<<(std::ostream &out,
@@ -17,6 +17,6 @@ struct Assignment {
 
 template <> struct SymbolTraits<Assignment> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<Identifier, TermialCharacter<'='>, AddExpression>>;
+        ConstructorParams<Identifier, EqlToken, AddExpression>>;
     using ConstructorsNextSymbol = ConstructorTraits<>;
 };
