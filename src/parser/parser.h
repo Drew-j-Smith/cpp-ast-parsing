@@ -19,7 +19,7 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
     std::vector<Variant> parseStack;
 
     const char *end = str.data();
-    for (const auto token : lexer<TerminalArgs...>{str}) {
+    for (const auto token : Lexer<TerminalArgs...>{str}) {
         Variant lookahead;
         std::visit(
             [&](auto &&arg) {

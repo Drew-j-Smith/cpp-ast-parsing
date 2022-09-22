@@ -1,25 +1,14 @@
 #pragma once
 
-#include "identifier.h"
 #include "parser.h"
-#include "terminal_char.h"
+#include "tokens.h"
 #include <charconv>
 #include <map>
 
-struct DoubleStr : public token {
-    constexpr static ctll::fixed_string capture_name = "number";
-    constexpr static std::string_view regex = "\\s*(?<number>[0-9]+)\\s*";
-};
-
 struct Double {
     double data;
-    Double(DoubleStr doubleStr) {
-        auto [ptr, ec]{
-            std::from_chars(doubleStr.str.data(),
-                            doubleStr.str.data() + doubleStr.str.size(), data)};
-        if (ec != std::errc{}) {
-            throw std::runtime_error{"Double parse failed? what?"};
-        }
+    Double(DoubleToken str) {
+        std::from_chars(str.str.data(), str.str.data() + str.str.size(), data);
     }
     friend std::ostream &operator<<(std::ostream &out, const Double &d) {
         return out << "Double(" << d.data << ")";
@@ -27,7 +16,7 @@ struct Double {
 };
 
 template <> struct SymbolTraits<Double> {
-    using Constructors = ConstructorTraits<ConstructorParams<DoubleStr>>;
+    using Constructors = ConstructorTraits<ConstructorParams<DoubleToken>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, CloseParenToken>;
 };

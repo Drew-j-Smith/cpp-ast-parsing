@@ -4,23 +4,18 @@
 #include <iostream>
 #include <variant>
 
-struct token {
+struct Token {
     std::string_view str;
-    friend std::ostream &operator<<(std::ostream &out, token t) {
+    friend std::ostream &operator<<(std::ostream &out, Token t) {
         return out << t.str;
     }
 };
 
-template <size_t N> struct fixed_string { char str[N]{}; };
-
-template <typename... Tokens> class lexer {
+template <typename... Tokens> class Lexer {
 private:
-    using Variant = std::variant<Tokens...>;
-
     constexpr static auto gen_regex() {
-        fixed_string<(Tokens::regex.size() + ...) + sizeof...(Tokens) * 3>
-            res{};
-        auto str_itr = std::begin(res.str);
+        char res[(Tokens::regex.size() + ...) + sizeof...(Tokens) * 3]{};
+        char *str_itr = res;
         (
             [&]() {
                 *(str_itr++) = '(';
@@ -32,11 +27,11 @@ private:
             }(),
             ...);
         *(--str_itr) = '\0';
-        return res;
+        return ctll::fixed_string{res};
     }
 
     template <typename CurrToken, typename... RemainingTokens>
-    constexpr static Variant get_token(const auto &match) {
+    constexpr static std::variant<Tokens...> get_token(const auto &match) {
         auto m = match.template get<CurrToken::capture_name>();
         if constexpr (sizeof...(RemainingTokens) == 0) {
             return CurrToken{m};
@@ -50,9 +45,9 @@ private:
     }
 
     constexpr static auto regex = gen_regex();
-    using MatchType = decltype(ctre::tokenize<regex.str>(std::string_view{""}));
+    using MatchType = decltype(ctre::tokenize<regex>(std::string_view{""}));
     using IterBegin =
-        decltype(ctre::tokenize<regex.str>(std::string_view{""}).begin());
+        decltype(ctre::tokenize<regex>(std::string_view{""}).begin());
     MatchType tokens;
 
 public:
@@ -70,8 +65,8 @@ public:
         }
     };
 
-    constexpr lexer(std::string_view str)
-        : tokens(ctre::tokenize<regex.str>(str)) {}
+    constexpr Lexer(std::string_view str)
+        : tokens(ctre::tokenize<regex>(str)) {}
 
     constexpr auto begin() { return BeginIterator{tokens.begin()}; }
 
