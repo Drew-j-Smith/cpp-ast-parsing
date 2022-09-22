@@ -49,9 +49,6 @@ bool reduce(std::vector<Variant> &parseStack, const Variant &lookahead) {
 template <typename Variant, typename... SymbolArgs>
 void reduce_symbols(std::vector<Variant> &parseStack,
                     const Variant &lookahead) {
-    while (true) {
-        if (!(reduce<Variant, SymbolArgs>(parseStack, lookahead) || ...)) {
-            break;
-        }
-    }
+    while ((reduce<Variant, SymbolArgs>(parseStack, lookahead) || ...))
+        ;
 }
