@@ -1,10 +1,14 @@
 #pragma once
 
 #include <ctre.hpp>
+#include <iostream>
 #include <variant>
 
 struct token {
     std::string_view str;
+    friend std::ostream &operator<<(std::ostream &out, token t) {
+        return out << t.str;
+    }
 };
 
 template <size_t N> struct fixed_string { char str[N]{}; };

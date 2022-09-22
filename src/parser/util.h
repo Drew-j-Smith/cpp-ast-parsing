@@ -17,23 +17,6 @@ void printStack(const std::vector<Variant> &parseStack) {
     std::cerr << "\n";
 }
 
-template <typename Variant> struct ParseResult {
-    Variant variant;
-    std::string_view str;
-
-    ParseResult &operator+(ParseResult &&other) {
-        if (!std::holds_alternative<std::monostate>(other.variant)) {
-            str = other.str;
-            variant = std::move(other.variant);
-        }
-        return *this;
-    }
-};
-
-template <typename Terminal, typename Variant> struct TerminalTraits {
-    static ParseResult<Variant> shift(std::string_view);
-};
-
 template <typename... Params> struct ConstructorParams {};
 
 template <typename... Params> struct ConstructorTraits {};

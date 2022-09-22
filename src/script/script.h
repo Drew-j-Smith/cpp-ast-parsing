@@ -5,9 +5,9 @@
 #include "parser.h"
 
 inline auto parse_expression(std::string_view s) {
-    return parse(
-        Terminals<Identifier, Double, TermialCharacter<'+'>,
-                  TermialCharacter<'*'>, TermialCharacter<'('>,
-                  TermialCharacter<')'>, TermialCharacter<'='>>{},
-        Symbols<Expression, MultExpression, AddExpression, Assignment>{}, s);
+    return parse(Terminals<Identifier, DoubleStr, OpenParenToken,
+                           CloseParenToken, MultToken, AddToken, EqlToken>{},
+                 Symbols<Double, Expression, MultExpression, AddExpression,
+                         Assignment>{},
+                 s);
 }
