@@ -3,27 +3,34 @@
 #include "script/script.h"
 #include <string>
 
+template <typename... Types> struct Overload : Types... {
+    using Types::operator()...;
+};
+template <typename... Types> Overload(Types...) -> Overload<Types...>;
+
 int main() {
     std::map<std::string, double> variables{};
 
     std::string s;
-    try {
-        while (true) {
-            std::cout << "Enter expression\n";
-            std::getline(std::cin, s);
-            auto p = parse_expression(s);
-            if (std::holds_alternative<AddExpression>(p)) {
-                std::cout << std::get<AddExpression>(p).evaluate(variables)
-                          << '\n';
-            } else if (std::holds_alternative<Assignment>(p)) {
-                double value = std::get<Assignment>(p).a->evaluate(variables);
-                variables[std::string{std::get<Assignment>(p).i.str}] = value;
-            } else {
-                std::cerr << "Unknown value\n";
-                break;
-            }
-        }
-    } catch (std::exception &e) {
-        std::cout << e.what();
+    while (true) {
+        std::cout << "Enter expression\n";
+        std::getline(std::cin, s);
+        auto p = parse_expression(s);
+        std::visit(
+            Overload{[&](const AddExpression &a) {
+                         std::cout << a.evaluate(variables) << '\n';
+                     },
+                     [&](const Assignment &a) {
+                         double value = a.a->evaluate(variables);
+                         variables[std::string{a.i.str}] = value;
+                     },
+                     [](const ParseError &e) { std::cout << e << '\n'; },
+                     [](const TokenizeError &e) { std::cout << e << '\n'; },
+                     [](const auto &o) {
+                         std::cerr
+                             << "Unknown type: " << typeid(decltype(o)).name()
+                             << '\n';
+                     }},
+            p);
     }
 }

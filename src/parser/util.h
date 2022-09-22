@@ -17,6 +17,18 @@ void printStack(const std::vector<Variant> &parseStack) {
     std::cerr << "\n";
 }
 
+struct TokenizeError {
+    std::string_view msg;
+    friend std::ostream &operator<<(std::ostream &out, TokenizeError e) {
+        return out << "Incomplete parse, remaining string: \"" << e.msg << "\"";
+    }
+};
+struct ParseError {
+    friend std::ostream &operator<<(std::ostream &out, ParseError) {
+        return out << "non-empty parse stack";
+    }
+};
+
 template <typename... Params> struct ConstructorParams {};
 
 template <typename... Params> struct ConstructorTraits {};

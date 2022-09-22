@@ -2,7 +2,7 @@
 
 #include "assignment.h"
 #include "expression.h"
-#include "parser.h"
+#include "parser/parser.h"
 
 inline auto parse_expression(std::string_view s) {
     return parse(Terminals<Identifier, DoubleToken, OpenParenToken,

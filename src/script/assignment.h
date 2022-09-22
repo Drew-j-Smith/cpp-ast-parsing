@@ -1,7 +1,7 @@
 #pragma once
 
 #include "expression.h"
-#include "parser.h"
+#include "parser/parser.h"
 
 struct Assignment {
     Identifier i;

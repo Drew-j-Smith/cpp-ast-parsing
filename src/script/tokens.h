@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser.h"
+#include "parser/parser.h"
 
 struct Identifier : public Token {
     constexpr static ctll::fixed_string capture_name = "identifier";
