@@ -3,11 +3,6 @@
 #include "script/script.h"
 #include <string>
 
-template <typename... Types> struct Overload : Types... {
-    using Types::operator()...;
-};
-template <typename... Types> Overload(Types...) -> Overload<Types...>;
-
 int main() {
     std::map<std::string, double> variables{};
 

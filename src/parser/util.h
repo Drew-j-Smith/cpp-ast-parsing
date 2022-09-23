@@ -4,15 +4,19 @@
 #include <variant>
 #include <vector>
 
-inline std::ostream &operator<<(std::ostream &out, std::monostate) {
-    return out << "monostate";
-}
+template <typename... Types> struct Overload : Types... {
+    using Types::operator()...;
+};
+template <typename... Types> Overload(Types...) -> Overload<Types...>;
 
 template <typename Variant>
 void printStack(const std::vector<Variant> &parseStack) {
     std::cerr << "Parse stack:\n";
     for (const auto &el : parseStack) {
-        std::visit([](auto &variant) { std::cerr << variant << '\n'; }, el);
+        std::visit(
+            Overload{[](std::monostate) { std::cerr << "monostate\n"; },
+                     [](const auto &variant) { std::cerr << variant << '\n'; }},
+            el);
     }
     std::cerr << "\n";
 }
