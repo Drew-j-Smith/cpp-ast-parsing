@@ -55,8 +55,11 @@ public:
     struct BeginIterator {
         IterBegin it;
         constexpr auto operator*() { return get_token<Tokens...>(*it); }
-        constexpr auto operator++() { return ++it; }
-        constexpr auto operator++(int) { return it++; }
+        constexpr auto &operator++() {
+            ++it;
+            return *this;
+        }
+        constexpr auto operator++(int) { return BeginIterator{it++}; }
         constexpr auto operator==(EndIterator) {
             return it == ctre::regex_end_iterator{};
         }
