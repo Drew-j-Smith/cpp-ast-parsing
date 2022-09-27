@@ -5,48 +5,50 @@
 #include <charconv>
 #include <map>
 
-struct Double {
-    double data;
-    Double(DoubleToken str) {
+struct Integer {
+    int data;
+    Integer(IntegerToken str) {
         std::from_chars(str.str.data(), str.str.data() + str.str.size(), data);
     }
-    friend std::ostream &operator<<(std::ostream &out, const Double &d) {
-        return out << "Double(" << d.data << ")";
+    friend std::ostream &operator<<(std::ostream &out, const Integer &d) {
+        return out << "Integer(" << d.data << ")";
     }
 };
 
-template <> struct SymbolTraits<Double> {
-    using Constructors = ConstructorTraits<ConstructorParams<DoubleToken>>;
+template <> struct SymbolTraits<Integer> {
+    using Constructors = ConstructorTraits<ConstructorParams<IntegerToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken,
+                          CloseBraceToken>;
 };
 
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
-double evaluate_add_expression(const AddExpression &a,
-                               const std::map<std::string, double> &variables);
+int evaluate_add_expression(const AddExpression &a,
+                            const std::map<std::string, int> &variables);
 
 struct Expression {
-    std::variant<std::unique_ptr<AddExpression>, Identifier, Double> data;
+    std::variant<std::unique_ptr<AddExpression>, Identifier, Integer> data;
     explicit Expression(Identifier i) : data(i) {}
-    explicit Expression(Double d) : data(d) {}
+    explicit Expression(Integer d) : data(d) {}
     Expression(OpenParenToken, AddExpression &&a, CloseParenToken)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
         if (std::holds_alternative<Identifier>(e.data)) {
             return out << "Expression(" << std::get<Identifier>(e.data).str
                        << ")";
-        } else if (std::holds_alternative<Double>(e.data)) {
-            return out << "Expression(" << std::get<Double>(e.data).data << ")";
+        } else if (std::holds_alternative<Integer>(e.data)) {
+            return out << "Expression(" << std::get<Integer>(e.data).data
+                       << ")";
         }
         return out << "Expression("
                    << *std::get<std::unique_ptr<AddExpression>>(e.data) << ")";
     }
-    double evaluate(const std::map<std::string, double> &variables) const {
+    int evaluate(const std::map<std::string, int> &variables) const {
         if (std::holds_alternative<Identifier>(data)) {
             return variables.at(std::string{std::get<Identifier>(data).str});
-        } else if (std::holds_alternative<Double>(data)) {
-            return std::get<Double>(data).data;
+        } else if (std::holds_alternative<Integer>(data)) {
+            return std::get<Integer>(data).data;
         } else {
             return evaluate_add_expression(
                 *std::get<std::unique_ptr<AddExpression>>(data), variables);
@@ -56,10 +58,11 @@ struct Expression {
 
 template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<Identifier>, ConstructorParams<Double>,
+        ConstructorParams<Identifier>, ConstructorParams<Integer>,
         ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken,
+                          CloseBraceToken>;
 };
 
 struct MultExpression {
@@ -78,7 +81,7 @@ struct MultExpression {
         return out << "MultExpression(" << other.e << ")";
     }
 
-    double evaluate(const std::map<std::string, double> &variables) const {
+    int evaluate(const std::map<std::string, int> &variables) const {
         if (m) {
             return m->evaluate(variables) * e.evaluate(variables);
         } else {
@@ -92,7 +95,8 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<MultExpression, MultToken, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken,
+                          CloseBraceToken>;
 };
 
 struct AddExpression {
@@ -112,7 +116,7 @@ struct AddExpression {
         }
         return out << "AddExpression(" << *other.m << ")";
     }
-    double evaluate(const std::map<std::string, double> &variables) const {
+    int evaluate(const std::map<std::string, int> &variables) const {
         if (a) {
             return a->evaluate(variables) + m->evaluate(variables);
         } else {
@@ -121,8 +125,8 @@ struct AddExpression {
     }
 };
 
-double evaluate_add_expression(const AddExpression &a,
-                               const std::map<std::string, double> &variables) {
+int evaluate_add_expression(const AddExpression &a,
+                            const std::map<std::string, int> &variables) {
     return a.evaluate(variables);
 }
 
@@ -130,5 +134,24 @@ template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<AddExpression, AddToken, MultExpression>,
         ConstructorParams<MultExpression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<AddToken, CloseParenToken>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<AddToken, CloseParenToken, CloseBraceToken>;
+};
+
+struct Assignment {
+    Identifier i;
+    std::unique_ptr<AddExpression> a;
+    Assignment(Identifier i, EqlToken, AddExpression a)
+        : i(i), a(std::make_unique<AddExpression>(std::move(a))) {}
+
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const Assignment &other) {
+        return out << "Assignment(" << other.i << "=" << *other.a << ")";
+    }
+};
+
+template <> struct SymbolTraits<Assignment> {
+    using Constructors = ConstructorTraits<
+        ConstructorParams<Identifier, EqlToken, AddExpression>>;
+    using ConstructorsNextSymbol = ConstructorTraits<>;
 };
