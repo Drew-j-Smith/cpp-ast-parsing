@@ -31,8 +31,9 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
         parseStack.push_back(std::move(lookahead));
     }
     if (end != str.data() + str.size()) {
-        return Variant{
-            TokenizeError{std::string_view{end, str.data() + str.size()}}};
+        return Variant{TokenizeError{
+            std::string_view{end, static_cast<std::string_view::size_type>(
+                                      str.data() + str.size() - end)}}};
     }
     while (true) {
         if (!(reduce<Variant, SymbolArgs>(parseStack, std::monostate{}) ||
