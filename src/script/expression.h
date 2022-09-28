@@ -152,3 +152,24 @@ template <> struct SymbolTraits<Assignment> {
         ConstructorParams<Identifier, EqlToken, AddExpression>>;
     using ConstructorsNextSymbol = ConstructorTraits<>;
 };
+
+struct FunctionCall {
+    Identifier i;
+    AddExpression a;
+    FunctionCall(Identifier i, OpenParenToken, AddExpression a, CloseParenToken)
+        : i(i), a(std::move(a)) {}
+
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const FunctionCall &other) {
+        return out << other.i << "(" << other.a << ")";
+    }
+};
+
+template <> struct SymbolTraits<FunctionCall> {
+    using Constructors =
+        ConstructorTraits<ConstructorParams<Identifier, OpenParenToken,
+                                            AddExpression, CloseParenToken>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<MultToken, AddToken, CloseParenToken,
+                          CloseBraceToken>;
+};
