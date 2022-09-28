@@ -13,7 +13,7 @@ struct Statement {
     std::variant<AddExpression, Assignment, std::unique_ptr<IfExpression>> data;
     Statement(AddExpression a, SemicolonToken) : data(std::move(a)) {}
     Statement(Assignment a, SemicolonToken) : data(std::move(a)) {}
-    Statement(IfExpression &&i)
+    explicit Statement(IfExpression &&i)
         : data(std::make_unique<IfExpression>(std::move(i))) {}
     friend std::ostream &operator<<(std::ostream &out, const Statement &other) {
         if (std::holds_alternative<AddExpression>(other.data)) {
@@ -48,7 +48,7 @@ template <> struct SymbolTraits<Statement> {
 
 struct Block {
     std::vector<Statement> statements;
-    Block(Statement s) { statements.push_back(std::move(s)); }
+    explicit Block(Statement s) { statements.push_back(std::move(s)); }
     Block(Block other, Statement s) : statements(std::move(other.statements)) {
         statements.push_back(std::move(s));
     }

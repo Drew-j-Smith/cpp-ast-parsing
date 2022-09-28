@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <charconv>
 #include <map>
+#include <optional>
 
 struct Integer {
     int data;
@@ -21,7 +22,7 @@ template <> struct SymbolTraits<Integer> {
     using Constructors = ConstructorTraits<ConstructorParams<IntegerToken>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken>;
+                          CommaToken, CloseSquareBraceToken>;
 };
 
 struct FunctionCall;
@@ -34,9 +35,14 @@ evaluate_add_expression(const AddExpression &a,
 Variable evaluate_func_call(const FunctionCall &f,
                             const std::map<std::string, Variable> &variables);
 
+struct IndexIdentifier {
+    Identifier i;
+    std::unique_ptr<AddExpression> a;
+};
+
 struct Expression {
     std::variant<std::unique_ptr<AddExpression>, Identifier, Integer,
-                 std::unique_ptr<FunctionCall>>
+                 std::unique_ptr<FunctionCall>, IndexIdentifier>
         data;
     explicit Expression(Identifier i) : data(i) {}
     explicit Expression(Integer d) : data(d) {}
@@ -44,6 +50,12 @@ struct Expression {
         : data(std::make_unique<FunctionCall>(std::move(f))) {}
     Expression(OpenParenToken, AddExpression &&a, CloseParenToken)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
+    Expression(Identifier i, OpenSquareBraceToken, AddExpression &&a,
+               CloseSquareBraceToken)
+        : data(IndexIdentifier{i,
+                               std::make_unique<AddExpression>(std::move(a))}) {
+    }
+
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
         if (std::holds_alternative<Identifier>(e.data)) {
             return out << "Expression(" << std::get<Identifier>(e.data).str
@@ -56,9 +68,16 @@ struct Expression {
             return out << "Expression("
                        << *std::get<std::unique_ptr<AddExpression>>(e.data)
                        << ")";
+        } else if (std::holds_alternative<std::unique_ptr<FunctionCall>>(
+                       e.data)) {
+            return out << "Expression("
+                       << *std::get<std::unique_ptr<FunctionCall>>(e.data)
+                       << ")";
+        } else {
+            auto &indexed = std::get<IndexIdentifier>(e.data);
+            return out << "Expression(" << indexed.i << "[" << *indexed.a
+                       << "])";
         }
-        return out << "FunctionCall("
-                   << *std::get<std::unique_ptr<FunctionCall>>(e.data) << ")";
     }
     Variable evaluate(const std::map<std::string, Variable> &variables) const {
         if (std::holds_alternative<Identifier>(data)) {
@@ -69,9 +88,22 @@ struct Expression {
                        data)) {
             return evaluate_add_expression(
                 *std::get<std::unique_ptr<AddExpression>>(data), variables);
-        } else {
+        } else if (std::holds_alternative<std::unique_ptr<FunctionCall>>(
+                       data)) {
             return evaluate_func_call(
                 *std::get<std::unique_ptr<FunctionCall>>(data), variables);
+        } else {
+            auto &indexed = std::get<IndexIdentifier>(data);
+            int index = std::get<int>(
+                evaluate_add_expression(*indexed.a, variables).data);
+            auto &var = variables.at(std::string{indexed.i.str});
+            if (std::holds_alternative<std::vector<Variable>>(var.data)) {
+                return std::get<std::vector<Variable>>(
+                    var.data)[static_cast<std::vector<Variable>::size_type>(
+                    index)];
+            }
+            return Variable{std::get<std::string>(
+                var.data)[static_cast<std::string::size_type>(index)]};
         }
     }
 };
@@ -80,10 +112,12 @@ template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier>, ConstructorParams<Integer>,
         ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>,
-        ConstructorParams<FunctionCall>>;
+        ConstructorParams<FunctionCall>,
+        ConstructorParams<Identifier, OpenSquareBraceToken, AddExpression,
+                          CloseSquareBraceToken>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken>;
+                          CommaToken, CloseSquareBraceToken>;
 };
 
 struct MultExpression {
@@ -124,7 +158,7 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken>;
+                          CommaToken, CloseSquareBraceToken>;
 };
 
 struct AddExpression {
@@ -168,15 +202,19 @@ template <> struct SymbolTraits<AddExpression> {
         ConstructorParams<AddExpression, AddToken, MultExpression>,
         ConstructorParams<MultExpression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken>;
+        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken, CommaToken,
+                          CloseSquareBraceToken>;
 };
 
 struct Assignment {
     Identifier i;
     AddExpression a;
+    std::optional<AddExpression> indexExpr;
     Assignment(Identifier i, EqlToken, AddExpression a)
         : i(i), a(std::move(a)) {}
+    Assignment(Identifier i, OpenSquareBraceToken, AddExpression indexExpr,
+               CloseSquareBraceToken, EqlToken, AddExpression a)
+        : i(i), a(std::move(a)), indexExpr(std::move(indexExpr)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const Assignment &other) {
@@ -184,15 +222,42 @@ struct Assignment {
     }
 
     void evaluate(std::map<std::string, Variable> &variables) const {
-        variables[std::string{i.str}] = a.evaluate(variables);
+        std::string key{i.str};
+        if (indexExpr) {
+            int index =
+                std::get<int>(indexExpr.value().evaluate(variables).data);
+            auto it = variables.find(key);
+            if (it == variables.end()) {
+                variables[key] = Variable{std::vector<Variable>(
+                    static_cast<std::vector<Variable>::size_type>(index + 1))};
+            }
+            // TODO resize if out of range
+            if (std::holds_alternative<std::vector<Variable>>(
+                    variables.at(key).data)) {
+                std::get<std::vector<Variable>>(
+                    variables.at(key)
+                        .data)[static_cast<std::vector<Variable>::size_type>(
+                    index)] = a.evaluate(variables);
+            } else {
+                std::get<std::string>(
+                    variables.at(key)
+                        .data)[static_cast<std::string::size_type>(index)] =
+                    static_cast<char>(
+                        std::get<int>(a.evaluate(variables).data));
+            }
+
+        } else {
+            variables[key] = a.evaluate(variables);
+        }
     }
 };
 
 template <> struct SymbolTraits<Assignment> {
     using Constructors = ConstructorTraits<
-        ConstructorParams<Identifier, EqlToken, AddExpression>>;
-    using ConstructorsNextSymbol =
-        ConstructorTraits<SemicolonToken, CommaToken>;
+        ConstructorParams<Identifier, EqlToken, AddExpression>,
+        ConstructorParams<Identifier, OpenSquareBraceToken, AddExpression,
+                          CloseSquareBraceToken, EqlToken, AddExpression>>;
+    using ConstructorsNextSymbol = ConstructorTraits<SemicolonToken>;
 };
 
 struct FunctionParameters {

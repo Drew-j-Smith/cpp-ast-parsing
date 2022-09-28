@@ -61,3 +61,13 @@ struct CommaToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Comma";
     constexpr static std::string_view regex = "?<Comma>\\s*,\\s*";
 };
+
+struct OpenSquareBraceToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "OpenSquareBrace";
+    constexpr static std::string_view regex = "?<OpenSquareBrace>\\s*\\[\\s*";
+};
+
+struct CloseSquareBraceToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "CloseSquareBrace";
+    constexpr static std::string_view regex = "?<CloseSquareBrace>\\s*\\]\\s*";
+};
