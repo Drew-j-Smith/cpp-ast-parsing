@@ -6,12 +6,13 @@
 
 inline auto parse_expression(std::string_view s) {
     return parse(
-        Terminals<IfToken, Identifier, IntegerToken, OpenParenToken,
+        Terminals<IfToken, WhileToken, Identifier, IntegerToken, OpenParenToken,
                   CloseParenToken, OpenBraceToken, CloseBraceToken, MultToken,
                   AddToken, EqlToken, SemicolonToken, CommaToken,
                   OpenSquareBraceToken, CloseSquareBraceToken>{},
-        Symbols<FunctionCall, IfExpression, IfCondition, Integer, Expression,
-                MultExpression, AddExpression, Assignment, Statement, Block,
+        Symbols<FunctionCall, IfExpression, IfCondition, WhileExpression,
+                WhileCondition, Integer, Expression, MultExpression,
+                AddExpression, Assignment, Statement, Block,
                 FunctionParameters>{},
         s);
 }

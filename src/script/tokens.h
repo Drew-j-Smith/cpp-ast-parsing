@@ -12,6 +12,11 @@ struct IfToken : public Token {
     constexpr static std::string_view regex = "?<if>if\\b";
 };
 
+struct WhileToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "while";
+    constexpr static std::string_view regex = "?<while>while\\b";
+};
+
 struct IntegerToken : public Token {
     constexpr static ctll::fixed_string capture_name = "number";
     constexpr static std::string_view regex = "?<number>[0-9]+";
