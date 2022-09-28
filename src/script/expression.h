@@ -143,7 +143,7 @@ struct AddExpression {
             auto m_val = m.evaluate(variables);
             if (std::holds_alternative<int>(a_val.data) &&
                 std::holds_alternative<int>(m_val.data)) {
-                return Variable{std::get<int>(a_val.data) *
+                return Variable{std::get<int>(a_val.data) +
                                 std::get<int>(m_val.data)};
             }
             throw std::runtime_error{"Invalid add types"};
