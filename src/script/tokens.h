@@ -56,3 +56,8 @@ struct SemicolonToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Semicolon";
     constexpr static std::string_view regex = "?<Semicolon>\\s*;\\s*";
 };
+
+struct CommaToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "Comma";
+    constexpr static std::string_view regex = "?<Comma>\\s*,\\s*";
+};

@@ -8,8 +8,9 @@ inline auto parse_expression(std::string_view s) {
     return parse(
         Terminals<IfToken, Identifier, IntegerToken, OpenParenToken,
                   CloseParenToken, OpenBraceToken, CloseBraceToken, MultToken,
-                  AddToken, EqlToken, SemicolonToken>{},
+                  AddToken, EqlToken, SemicolonToken, CommaToken>{},
         Symbols<FunctionCall, IfExpression, IfCondition, Integer, Expression,
-                MultExpression, AddExpression, Assignment, Statement, Block>{},
+                MultExpression, AddExpression, Assignment, Statement, Block,
+                FunctionParameters>{},
         s);
 }

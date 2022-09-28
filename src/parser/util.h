@@ -13,10 +13,12 @@ template <typename Variant>
 void printStack(const std::vector<Variant> &parseStack) {
     std::cerr << "Parse stack:\n";
     for (const auto &el : parseStack) {
-        std::visit(
-            Overload{[](std::monostate) { std::cerr << "monostate\n"; },
-                     [](const auto &variant) { std::cerr << variant << '\n'; }},
-            el);
+        std::visit(Overload{[](std::monostate) { std::cerr << "monostate\n"; },
+                            [](const auto &variant) {
+                                std::cerr << typeid(decltype(variant)).name()
+                                          << ":" << variant << '\n';
+                            }},
+                   el);
     }
     std::cerr << "\n";
 }

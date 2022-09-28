@@ -1,17 +1,26 @@
 
 #include "parser/lookahead.h"
 #include "script/script.h"
+#include <cstdlib>
 #include <string>
 
 int main() {
     std::map<std::string, Variable> variables{};
 
-    variables["print"] = Variable{[](Variable to_print) {
-        std::visit(
-            Overload{[](const auto &val) { std::cout << val << '\n'; },
-                     [](std::vector<Variable>) { std::cout << "vector\n"; },
-                     [](Variable (*)(Variable)) { std::cout << "function\n"; }},
-            to_print.data);
+    variables["print"] = Variable{[](const std::vector<Variable> &to_print) {
+        for (const auto &var : to_print) {
+            std::visit(
+                Overload{[](const auto &val) { std::cout << val << '\n'; },
+                         [](std::vector<Variable>) { std::cout << "vector\n"; },
+                         [](Variable (*)(const std::vector<Variable> &)) {
+                             std::cout << "function\n";
+                         }},
+                var.data);
+        }
+        return Variable{0};
+    }};
+    variables["exit"] = Variable{[](const std::vector<Variable> &) {
+        std::exit(0);
         return Variable{0};
     }};
 

@@ -3,12 +3,13 @@
 #include "parser/parser.h"
 #include "tokens.h"
 #include "variable.h"
+#include <algorithm>
 #include <charconv>
 #include <map>
 
 struct Integer {
     int data;
-    Integer(IntegerToken str) {
+    explicit Integer(IntegerToken str) {
         std::from_chars(str.str.data(), str.str.data() + str.str.size(), data);
     }
     friend std::ostream &operator<<(std::ostream &out, const Integer &d) {
@@ -19,7 +20,8 @@ struct Integer {
 template <> struct SymbolTraits<Integer> {
     using Constructors = ConstructorTraits<ConstructorParams<IntegerToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
+                          CommaToken>;
 };
 
 struct FunctionCall;
@@ -80,13 +82,14 @@ template <> struct SymbolTraits<Expression> {
         ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>,
         ConstructorParams<FunctionCall>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
+                          CommaToken>;
 };
 
 struct MultExpression {
     std::unique_ptr<MultExpression> m;
     Expression e;
-    MultExpression(Expression e) : e(std::move(e)) {}
+    explicit MultExpression(Expression e) : e(std::move(e)) {}
     MultExpression(MultExpression m, MultToken, Expression e)
         : m(std::make_unique<MultExpression>(std::move(m))), e(std::move(e)) {}
 
@@ -120,13 +123,14 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<MultExpression, MultToken, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
+                          CommaToken>;
 };
 
 struct AddExpression {
     std::unique_ptr<AddExpression> a;
     MultExpression m;
-    AddExpression(MultExpression m) : m(std::move(m)) {}
+    explicit AddExpression(MultExpression m) : m(std::move(m)) {}
     AddExpression(AddExpression a, AddToken, MultExpression m)
         : a(std::make_unique<AddExpression>(std::move(a))), m(std::move(m)) {}
 
@@ -164,7 +168,8 @@ template <> struct SymbolTraits<AddExpression> {
         ConstructorParams<AddExpression, AddToken, MultExpression>,
         ConstructorParams<MultExpression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken>;
+        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken,
+                          CommaToken>;
 };
 
 struct Assignment {
@@ -186,33 +191,70 @@ struct Assignment {
 template <> struct SymbolTraits<Assignment> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier, EqlToken, AddExpression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<SemicolonToken>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<SemicolonToken, CommaToken>;
+};
+
+struct FunctionParameters {
+    Identifier i;
+    std::vector<AddExpression> parameters;
+    FunctionParameters(Identifier i) : i(i) {}
+    FunctionParameters(Identifier i, OpenParenToken, AddExpression a) : i(i) {
+        parameters.push_back(std::move(a));
+    }
+    FunctionParameters(FunctionParameters params, CommaToken, AddExpression a)
+        : i(params.i), parameters{std::move(params.parameters)} {
+        parameters.push_back(std::move(a));
+    }
+
+    friend std::ostream &operator<<(std::ostream &out,
+                                    const FunctionParameters &other) {
+        out << other.i << '(';
+        for (const auto &param : other.parameters) {
+            out << param << ',';
+        }
+        return out;
+    }
+};
+
+template <> struct SymbolTraits<FunctionParameters> {
+    using Constructors = ConstructorTraits<
+        ConstructorParams<Identifier, OpenParenToken, AddExpression>,
+        ConstructorParams<FunctionParameters, CommaToken, AddExpression>>;
+    using ConstructorsNextSymbol =
+        ConstructorTraits<CloseParenToken, CommaToken>;
 };
 
 struct FunctionCall {
-    Identifier i;
-    AddExpression a;
-    FunctionCall(Identifier i, OpenParenToken, AddExpression a, CloseParenToken)
-        : i(i), a(std::move(a)) {}
+    FunctionParameters params;
+    FunctionCall(FunctionParameters params, CloseParenToken)
+        : params(std::move(params)) {}
+    FunctionCall(Identifier i, OpenParenToken, CloseParenToken) : params(i) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const FunctionCall &other) {
-        return out << other.i << "(" << other.a << ")";
+        return out << other.params << ")";
     }
 
     Variable evaluate(const std::map<std::string, Variable> &variables) const {
-        auto fn_ptr = std::get<Variable (*)(Variable)>(
-            variables.at(std::string{i.str}).data);
-        return fn_ptr(a.evaluate(variables));
+        auto fn_ptr = std::get<Variable (*)(const std::vector<Variable> &)>(
+            variables.at(std::string{params.i.str}).data);
+        std::vector<Variable> param_vals(params.parameters.size());
+        std::transform(params.parameters.begin(), params.parameters.end(),
+                       param_vals.begin(), [&](const auto &addExpr) {
+                           return addExpr.evaluate(variables);
+                       });
+        return fn_ptr(param_vals);
     }
 };
 
 template <> struct SymbolTraits<FunctionCall> {
-    using Constructors =
-        ConstructorTraits<ConstructorParams<Identifier, OpenParenToken,
-                                            AddExpression, CloseParenToken>>;
+    using Constructors = ConstructorTraits<
+        ConstructorParams<FunctionParameters, CloseParenToken>,
+        ConstructorParams<Identifier, OpenParenToken, CloseParenToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
+                          CommaToken>;
 };
 
 Variable evaluate_func_call(const FunctionCall &f,
