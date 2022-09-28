@@ -2,6 +2,7 @@
 
 #include "parser/parser.h"
 #include "tokens.h"
+#include "variable.h"
 #include <charconv>
 #include <map>
 
@@ -22,15 +23,23 @@ template <> struct SymbolTraits<Integer> {
                           CloseBraceToken>;
 };
 
+struct FunctionCall;
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
-int evaluate_add_expression(const AddExpression &a,
-                            const std::map<std::string, int> &variables);
+Variable
+evaluate_add_expression(const AddExpression &a,
+                        const std::map<std::string, Variable> &variables);
+Variable evaluate_func_call(const FunctionCall &f,
+                            const std::map<std::string, Variable> &variables);
 
 struct Expression {
-    std::variant<std::unique_ptr<AddExpression>, Identifier, Integer> data;
+    std::variant<std::unique_ptr<AddExpression>, Identifier, Integer,
+                 std::unique_ptr<FunctionCall>>
+        data;
     explicit Expression(Identifier i) : data(i) {}
     explicit Expression(Integer d) : data(d) {}
+    explicit Expression(FunctionCall &&f)
+        : data(std::make_unique<FunctionCall>(std::move(f))) {}
     Expression(OpenParenToken, AddExpression &&a, CloseParenToken)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
     friend std::ostream &operator<<(std::ostream &out, const Expression &e) {
@@ -44,14 +53,18 @@ struct Expression {
         return out << "Expression("
                    << *std::get<std::unique_ptr<AddExpression>>(e.data) << ")";
     }
-    int evaluate(const std::map<std::string, int> &variables) const {
+    Variable evaluate(const std::map<std::string, Variable> &variables) const {
         if (std::holds_alternative<Identifier>(data)) {
             return variables.at(std::string{std::get<Identifier>(data).str});
         } else if (std::holds_alternative<Integer>(data)) {
-            return std::get<Integer>(data).data;
-        } else {
+            return Variable{std::get<Integer>(data).data};
+        } else if (std::holds_alternative<std::unique_ptr<AddExpression>>(
+                       data)) {
             return evaluate_add_expression(
                 *std::get<std::unique_ptr<AddExpression>>(data), variables);
+        } else {
+            return evaluate_func_call(
+                *std::get<std::unique_ptr<FunctionCall>>(data), variables);
         }
     }
 };
@@ -59,7 +72,8 @@ struct Expression {
 template <> struct SymbolTraits<Expression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier>, ConstructorParams<Integer>,
-        ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>>;
+        ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>,
+        ConstructorParams<FunctionCall>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, CloseParenToken,
                           CloseBraceToken>;
@@ -81,9 +95,16 @@ struct MultExpression {
         return out << "MultExpression(" << other.e << ")";
     }
 
-    int evaluate(const std::map<std::string, int> &variables) const {
+    Variable evaluate(const std::map<std::string, Variable> &variables) const {
         if (m) {
-            return m->evaluate(variables) * e.evaluate(variables);
+            auto m_val = m->evaluate(variables);
+            auto e_val = e.evaluate(variables);
+            if (std::holds_alternative<int>(m_val.data) &&
+                std::holds_alternative<int>(e_val.data)) {
+                return Variable{std::get<int>(m_val.data) *
+                                std::get<int>(e_val.data)};
+            }
+            throw std::runtime_error{"Invalid mult types"};
         } else {
             return e.evaluate(variables);
         }
@@ -113,17 +134,25 @@ struct AddExpression {
         }
         return out << "AddExpression(" << other.m << ")";
     }
-    int evaluate(const std::map<std::string, int> &variables) const {
+    Variable evaluate(const std::map<std::string, Variable> &variables) const {
         if (a) {
-            return a->evaluate(variables) + m.evaluate(variables);
+            auto a_val = a->evaluate(variables);
+            auto m_val = m.evaluate(variables);
+            if (std::holds_alternative<int>(a_val.data) &&
+                std::holds_alternative<int>(m_val.data)) {
+                return Variable{std::get<int>(a_val.data) *
+                                std::get<int>(m_val.data)};
+            }
+            throw std::runtime_error{"Invalid add types"};
         } else {
             return m.evaluate(variables);
         }
     }
 };
 
-int evaluate_add_expression(const AddExpression &a,
-                            const std::map<std::string, int> &variables) {
+Variable
+evaluate_add_expression(const AddExpression &a,
+                        const std::map<std::string, Variable> &variables) {
     return a.evaluate(variables);
 }
 
@@ -163,6 +192,12 @@ struct FunctionCall {
                                     const FunctionCall &other) {
         return out << other.i << "(" << other.a << ")";
     }
+
+    Variable evaluate(const std::map<std::string, Variable> &variables) const {
+        auto fn_ptr = std::get<Variable (*)(Variable)>(
+            variables.at(std::string{i.str}).data);
+        return fn_ptr(a.evaluate(variables));
+    }
 };
 
 template <> struct SymbolTraits<FunctionCall> {
@@ -173,3 +208,8 @@ template <> struct SymbolTraits<FunctionCall> {
         ConstructorTraits<MultToken, AddToken, CloseParenToken,
                           CloseBraceToken>;
 };
+
+Variable evaluate_func_call(const FunctionCall &f,
+                            const std::map<std::string, Variable> &variables) {
+    return f.evaluate(variables);
+}

@@ -3,8 +3,19 @@
 #include "script/script.h"
 #include <string>
 
+Variable print(Variable to_print) {
+    std::visit(
+        Overload{[](const auto &val) { std::cout << val << '\n'; },
+                 [](std::vector<Variable>) { std::cout << "vector\n"; },
+                 [](Variable (*)(Variable)) { std::cout << "function\n"; }},
+        to_print.data);
+    return Variable{0};
+}
+
 int main() {
-    std::map<std::string, int> variables{};
+    std::map<std::string, Variable> variables{};
+
+    variables["print"] = Variable{print};
 
     std::string s;
     while (true) {
@@ -17,15 +28,16 @@ int main() {
             auto p = parse_expression(s);
             std::visit(
                 Overload{[&](const AddExpression &a) {
-                             std::cout << a.evaluate(variables) << '\n';
+                             std::get<int>(a.evaluate(variables).data);
                          },
                          [&](const Assignment &a) {
-                             int value = a.a.evaluate(variables);
+                             auto value = a.a.evaluate(variables);
                              variables[std::string{a.i.str}] = value;
                          },
                          [&](const IfExpression &i) {
                              if (auto value = i.evaluate(variables)) {
-                                 std::cout << value.value() << '\n';
+                                 std::cout << std::get<int>(value.value().data)
+                                           << '\n';
                              }
                          },
                          [](const ParseError &e) { std::cout << e << '\n'; },

@@ -35,9 +35,9 @@ struct IfExpression {
         return out << other.condition << other.expression;
     }
 
-    std::optional<int>
-    evaluate(const std::map<std::string, int> &variables) const {
-        if (condition.condition.evaluate(variables)) {
+    std::optional<Variable>
+    evaluate(const std::map<std::string, Variable> &variables) const {
+        if (std::get<int>(condition.condition.evaluate(variables).data)) {
             return expression.evaluate(variables);
         }
         return {};
