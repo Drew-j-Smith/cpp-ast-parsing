@@ -52,6 +52,11 @@ struct AddToken : public Token {
     constexpr static std::string_view regex = "?<Add>\\+";
 };
 
+struct SubToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "Sub";
+    constexpr static std::string_view regex = "?<Sub>\\-";
+};
+
 struct EqlToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Eql";
     constexpr static std::string_view regex = "?<Eql>=";

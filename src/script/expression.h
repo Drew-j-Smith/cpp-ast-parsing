@@ -21,8 +21,8 @@ struct Integer {
 template <> struct SymbolTraits<Integer> {
     using Constructors = ConstructorTraits<ConstructorParams<IntegerToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken, CloseSquareBraceToken>;
+        ConstructorTraits<MultToken, AddToken, SubToken, CloseParenToken,
+                          SemicolonToken, CommaToken, CloseSquareBraceToken>;
 };
 
 struct FunctionCall;
@@ -116,8 +116,8 @@ template <> struct SymbolTraits<Expression> {
         ConstructorParams<Identifier, OpenSquareBraceToken, AddExpression,
                           CloseSquareBraceToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken, CloseSquareBraceToken>;
+        ConstructorTraits<MultToken, AddToken, SubToken, CloseParenToken,
+                          SemicolonToken, CommaToken, CloseSquareBraceToken>;
 };
 
 struct MultExpression {
@@ -157,16 +157,20 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<MultExpression, MultToken, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken, CloseSquareBraceToken>;
+        ConstructorTraits<MultToken, AddToken, SubToken, CloseParenToken,
+                          SemicolonToken, CommaToken, CloseSquareBraceToken>;
 };
 
 struct AddExpression {
     std::unique_ptr<AddExpression> a;
     MultExpression m;
+    bool is_add{true};
     explicit AddExpression(MultExpression m) : m(std::move(m)) {}
     AddExpression(AddExpression a, AddToken, MultExpression m)
         : a(std::make_unique<AddExpression>(std::move(a))), m(std::move(m)) {}
+    AddExpression(AddExpression a, SubToken, MultExpression m)
+        : a(std::make_unique<AddExpression>(std::move(a))), m(std::move(m)),
+          is_add(false) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const AddExpression &other) {
@@ -181,8 +185,13 @@ struct AddExpression {
             auto m_val = m.evaluate(variables);
             if (std::holds_alternative<int>(a_val.data) &&
                 std::holds_alternative<int>(m_val.data)) {
-                return Variable{std::get<int>(a_val.data) +
-                                std::get<int>(m_val.data)};
+                if (is_add) {
+                    return Variable{std::get<int>(a_val.data) +
+                                    std::get<int>(m_val.data)};
+                } else {
+                    return Variable{std::get<int>(a_val.data) -
+                                    std::get<int>(m_val.data)};
+                }
             }
             throw std::runtime_error{"Invalid add types"};
         } else {
@@ -200,10 +209,11 @@ evaluate_add_expression(const AddExpression &a,
 template <> struct SymbolTraits<AddExpression> {
     using Constructors = ConstructorTraits<
         ConstructorParams<AddExpression, AddToken, MultExpression>,
+        ConstructorParams<AddExpression, SubToken, MultExpression>,
         ConstructorParams<MultExpression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken, CommaToken,
-                          CloseSquareBraceToken>;
+        ConstructorTraits<AddToken, SubToken, CloseParenToken, SemicolonToken,
+                          CommaToken, CloseSquareBraceToken>;
 };
 
 struct Assignment {
@@ -318,8 +328,8 @@ template <> struct SymbolTraits<FunctionCall> {
         ConstructorParams<FunctionParameters, CloseParenToken>,
         ConstructorParams<Identifier, OpenParenToken, CloseParenToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken,
-                          CommaToken>;
+        ConstructorTraits<MultToken, AddToken, SubToken, CloseParenToken,
+                          SemicolonToken, CommaToken>;
 };
 
 Variable evaluate_func_call(const FunctionCall &f,
