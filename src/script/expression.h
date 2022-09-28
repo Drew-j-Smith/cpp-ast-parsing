@@ -101,26 +101,23 @@ template <> struct SymbolTraits<MultExpression> {
 
 struct AddExpression {
     std::unique_ptr<AddExpression> a;
-    std::unique_ptr<MultExpression> m;
-    AddExpression(MultExpression m)
-        : m(std::make_unique<MultExpression>(std::move(m))) {}
+    MultExpression m;
+    AddExpression(MultExpression m) : m(std::move(m)) {}
     AddExpression(AddExpression a, AddToken, MultExpression m)
-        : a(std::make_unique<AddExpression>(std::move(a))),
-          m(std::make_unique<MultExpression>(std::move(m))) {}
+        : a(std::make_unique<AddExpression>(std::move(a))), m(std::move(m)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const AddExpression &other) {
         if (other.a) {
-            return out << "AddExpression(" << *other.a << "+" << *other.m
-                       << ")";
+            return out << "AddExpression(" << *other.a << "+" << other.m << ")";
         }
-        return out << "AddExpression(" << *other.m << ")";
+        return out << "AddExpression(" << other.m << ")";
     }
     int evaluate(const std::map<std::string, int> &variables) const {
         if (a) {
-            return a->evaluate(variables) + m->evaluate(variables);
+            return a->evaluate(variables) + m.evaluate(variables);
         } else {
-            return m->evaluate(variables);
+            return m.evaluate(variables);
         }
     }
 };
@@ -140,13 +137,13 @@ template <> struct SymbolTraits<AddExpression> {
 
 struct Assignment {
     Identifier i;
-    std::unique_ptr<AddExpression> a;
+    AddExpression a;
     Assignment(Identifier i, EqlToken, AddExpression a)
-        : i(i), a(std::make_unique<AddExpression>(std::move(a))) {}
+        : i(i), a(std::move(a)) {}
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const Assignment &other) {
-        return out << "Assignment(" << other.i << "=" << *other.a << ")";
+        return out << "Assignment(" << other.i << "=" << other.a << ")";
     }
 };
 

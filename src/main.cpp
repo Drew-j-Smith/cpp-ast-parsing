@@ -20,7 +20,7 @@ int main() {
                              std::cout << a.evaluate(variables) << '\n';
                          },
                          [&](const Assignment &a) {
-                             int value = a.a->evaluate(variables);
+                             int value = a.a.evaluate(variables);
                              variables[std::string{a.i.str}] = value;
                          },
                          [&](const IfExpression &i) {
