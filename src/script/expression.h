@@ -19,13 +19,13 @@ struct Integer {
 template <> struct SymbolTraits<Integer> {
     using Constructors = ConstructorTraits<ConstructorParams<IntegerToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken,
-                          CloseBraceToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
 };
 
 struct FunctionCall;
 struct AddExpression;
 std::ostream &operator<<(std::ostream &out, const AddExpression &a);
+std::ostream &operator<<(std::ostream &out, const FunctionCall &a);
 Variable
 evaluate_add_expression(const AddExpression &a,
                         const std::map<std::string, Variable> &variables);
@@ -49,9 +49,14 @@ struct Expression {
         } else if (std::holds_alternative<Integer>(e.data)) {
             return out << "Expression(" << std::get<Integer>(e.data).data
                        << ")";
+        } else if (std::holds_alternative<std::unique_ptr<AddExpression>>(
+                       e.data)) {
+            return out << "Expression("
+                       << *std::get<std::unique_ptr<AddExpression>>(e.data)
+                       << ")";
         }
-        return out << "Expression("
-                   << *std::get<std::unique_ptr<AddExpression>>(e.data) << ")";
+        return out << "FunctionCall("
+                   << *std::get<std::unique_ptr<FunctionCall>>(e.data) << ")";
     }
     Variable evaluate(const std::map<std::string, Variable> &variables) const {
         if (std::holds_alternative<Identifier>(data)) {
@@ -75,8 +80,7 @@ template <> struct SymbolTraits<Expression> {
         ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>,
         ConstructorParams<FunctionCall>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken,
-                          CloseBraceToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
 };
 
 struct MultExpression {
@@ -116,8 +120,7 @@ template <> struct SymbolTraits<MultExpression> {
         ConstructorParams<MultExpression, MultToken, Expression>,
         ConstructorParams<Expression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken,
-                          CloseBraceToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
 };
 
 struct AddExpression {
@@ -161,7 +164,7 @@ template <> struct SymbolTraits<AddExpression> {
         ConstructorParams<AddExpression, AddToken, MultExpression>,
         ConstructorParams<MultExpression>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<AddToken, CloseParenToken, CloseBraceToken>;
+        ConstructorTraits<AddToken, CloseParenToken, SemicolonToken>;
 };
 
 struct Assignment {
@@ -174,12 +177,16 @@ struct Assignment {
                                     const Assignment &other) {
         return out << "Assignment(" << other.i << "=" << other.a << ")";
     }
+
+    void evaluate(std::map<std::string, Variable> &variables) const {
+        variables[std::string{i.str}] = a.evaluate(variables);
+    }
 };
 
 template <> struct SymbolTraits<Assignment> {
     using Constructors = ConstructorTraits<
         ConstructorParams<Identifier, EqlToken, AddExpression>>;
-    using ConstructorsNextSymbol = ConstructorTraits<>;
+    using ConstructorsNextSymbol = ConstructorTraits<SemicolonToken>;
 };
 
 struct FunctionCall {
@@ -205,8 +212,7 @@ template <> struct SymbolTraits<FunctionCall> {
         ConstructorTraits<ConstructorParams<Identifier, OpenParenToken,
                                             AddExpression, CloseParenToken>>;
     using ConstructorsNextSymbol =
-        ConstructorTraits<MultToken, AddToken, CloseParenToken,
-                          CloseBraceToken>;
+        ConstructorTraits<MultToken, AddToken, CloseParenToken, SemicolonToken>;
 };
 
 Variable evaluate_func_call(const FunctionCall &f,

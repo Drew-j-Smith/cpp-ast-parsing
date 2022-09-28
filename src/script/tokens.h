@@ -52,3 +52,8 @@ struct EqlToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Eql";
     constexpr static std::string_view regex = "?<Eql>=";
 };
+
+struct SemicolonToken : public Token {
+    constexpr static ctll::fixed_string capture_name = "Semicolon";
+    constexpr static std::string_view regex = "?<Semicolon>;";
+};

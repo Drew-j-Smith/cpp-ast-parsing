@@ -25,12 +25,7 @@ int main() {
             }
             auto p = parse_expression(s);
             std::visit(
-                Overload{[&](const AddExpression &a) { a.evaluate(variables); },
-                         [&](const Assignment &a) {
-                             variables[std::string{a.i.str}] =
-                                 a.a.evaluate(variables);
-                         },
-                         [&](const IfExpression &i) { i.evaluate(variables); },
+                Overload{[&](const Block &b) { b.evaluate(variables); },
                          [](const ParseError &e) { std::cout << e << '\n'; },
                          [](const TokenizeError &e) { std::cout << e << '\n'; },
                          [](const auto &o) {
