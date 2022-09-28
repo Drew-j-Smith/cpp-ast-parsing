@@ -9,7 +9,7 @@ struct Identifier : public Token {
 
 struct IfToken : public Token {
     constexpr static ctll::fixed_string capture_name = "if";
-    constexpr static std::string_view regex = "?<if>\\s*if\\b\\s*";
+    constexpr static std::string_view regex = "?<if>if\\b";
 };
 
 struct IntegerToken : public Token {
@@ -19,55 +19,55 @@ struct IntegerToken : public Token {
 
 struct OpenParenToken : public Token {
     constexpr static ctll::fixed_string capture_name = "OpenParen";
-    constexpr static std::string_view regex = "?<OpenParen>\\s*\\(\\s*";
+    constexpr static std::string_view regex = "?<OpenParen>\\(";
 };
 
 struct CloseParenToken : public Token {
     constexpr static ctll::fixed_string capture_name = "CloseParen";
-    constexpr static std::string_view regex = "?<CloseParen>\\s*\\)\\s*";
+    constexpr static std::string_view regex = "?<CloseParen>\\)";
 };
 
 struct OpenBraceToken : public Token {
     constexpr static ctll::fixed_string capture_name = "OpenBrace";
-    constexpr static std::string_view regex = "?<OpenBrace>\\s*\\{\\s*";
+    constexpr static std::string_view regex = "?<OpenBrace>\\{";
 };
 
 struct CloseBraceToken : public Token {
     constexpr static ctll::fixed_string capture_name = "CloseBrace";
-    constexpr static std::string_view regex = "?<CloseBrace>\\s*\\}\\s*";
+    constexpr static std::string_view regex = "?<CloseBrace>\\}";
 };
 
 struct MultToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Mult";
-    constexpr static std::string_view regex = "?<Mult>\\s*\\*\\s*";
+    constexpr static std::string_view regex = "?<Mult>\\*";
 };
 
 struct AddToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Add";
-    constexpr static std::string_view regex = "?<Add>\\s*\\+\\s*";
+    constexpr static std::string_view regex = "?<Add>\\+";
 };
 
 struct EqlToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Eql";
-    constexpr static std::string_view regex = "?<Eql>\\s*=\\s*";
+    constexpr static std::string_view regex = "?<Eql>=";
 };
 
 struct SemicolonToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Semicolon";
-    constexpr static std::string_view regex = "?<Semicolon>\\s*;\\s*";
+    constexpr static std::string_view regex = "?<Semicolon>;";
 };
 
 struct CommaToken : public Token {
     constexpr static ctll::fixed_string capture_name = "Comma";
-    constexpr static std::string_view regex = "?<Comma>\\s*,\\s*";
+    constexpr static std::string_view regex = "?<Comma>,";
 };
 
 struct OpenSquareBraceToken : public Token {
     constexpr static ctll::fixed_string capture_name = "OpenSquareBrace";
-    constexpr static std::string_view regex = "?<OpenSquareBrace>\\s*\\[\\s*";
+    constexpr static std::string_view regex = "?<OpenSquareBrace>\\[";
 };
 
 struct CloseSquareBraceToken : public Token {
     constexpr static ctll::fixed_string capture_name = "CloseSquareBrace";
-    constexpr static std::string_view regex = "?<CloseSquareBrace>\\s*\\]\\s*";
+    constexpr static std::string_view regex = "?<CloseSquareBrace>\\]";
 };

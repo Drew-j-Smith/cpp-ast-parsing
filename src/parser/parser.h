@@ -11,6 +11,11 @@
 #include "reduce.h"
 #include "util.h"
 
+struct Whitespace : public Token {
+    constexpr static ctll::fixed_string capture_name = "Whitespace";
+    constexpr static std::string_view regex = "?<Whitespace>\\s+";
+};
+
 template <typename... TerminalArgs, typename... SymbolArgs>
 auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
            std::string_view str) {
@@ -19,14 +24,19 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
     std::vector<Variant> parseStack;
 
     const char *end = str.data();
-    for (const auto token : Lexer<TerminalArgs...>{str}) {
+    for (const auto token : Lexer<Whitespace, TerminalArgs...>{str}) {
         Variant lookahead;
-        std::visit(
-            [&](auto &&arg) {
-                lookahead = arg;
-                end = arg.str.data() + arg.str.size();
-            },
-            token);
+        std::visit(Overload{[&](Whitespace arg) {
+                                end = arg.str.data() + arg.str.size();
+                            },
+                            [&](auto arg) {
+                                lookahead = arg;
+                                end = arg.str.data() + arg.str.size();
+                            }},
+                   token);
+        if (std::holds_alternative<std::monostate>(lookahead)) {
+            continue;
+        }
         reduce_symbols<Variant, SymbolArgs...>(parseStack, lookahead);
         parseStack.push_back(std::move(lookahead));
     }
