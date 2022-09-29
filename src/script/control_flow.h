@@ -2,7 +2,6 @@
 #include "expression.h"
 #include "parser/parser.h"
 #include "tokens.h"
-#include <optional>
 
 struct IfExpression;
 std::ostream &operator<<(std::ostream &out, const IfExpression &other);
