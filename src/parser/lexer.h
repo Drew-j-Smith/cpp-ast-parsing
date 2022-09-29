@@ -30,16 +30,16 @@ private:
         return ctll::fixed_string{res};
     }
 
-    template <typename CurrToken, typename... RemainingTokens>
+    template <int index, typename CurrToken, typename... RemainingTokens>
     constexpr static std::variant<Tokens...> get_token(const auto &match) {
-        auto m = match.template get<CurrToken::capture_name>();
+        auto m = match.template get<index>();
         if constexpr (sizeof...(RemainingTokens) == 0) {
             return CurrToken{m};
         } else {
             if (m) {
                 return CurrToken{m};
             } else {
-                return get_token<RemainingTokens...>(match);
+                return get_token<index + 1, RemainingTokens...>(match);
             }
         }
     }
@@ -54,7 +54,7 @@ public:
     struct EndIterator {};
     struct BeginIterator {
         IterBegin it;
-        constexpr auto operator*() { return get_token<Tokens...>(*it); }
+        constexpr auto operator*() { return get_token<1, Tokens...>(*it); }
         constexpr auto &operator++() {
             ++it;
             return *this;
