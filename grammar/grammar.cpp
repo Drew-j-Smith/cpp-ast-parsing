@@ -1,6 +1,8 @@
 
 
 #include "script/script.h"
+#include <iomanip>
+using namespace std::literals;
 
 template <typename... Params>
 void print_ctor_grammar(std::ostream &out, ConstructorParams<Params...>) {
@@ -9,11 +11,17 @@ void print_ctor_grammar(std::ostream &out, ConstructorParams<Params...>) {
 
 template <typename Symbol, typename... Ctors>
 void print_ctors_grammar(std::ostream &out, ConstructorTraits<Ctors...>) {
-    out << "<" << typeid(Symbol).name() << "> ::= ";
+    out << std::right << std::setw(32)
+        << "<"s + typeid(Symbol).name() + "> ::= ";
+    unsigned int count = 0;
     (
         [&] {
             print_ctor_grammar(out, Ctors{});
-            out << " |";
+            out << '\n';
+            if (count < sizeof...(Ctors) - 1) {
+                out << std::setw(32) << "| ";
+            }
+            count++;
         }(),
         ...);
     out << '\n';
