@@ -65,3 +65,7 @@ struct OpenSquareBraceToken : public Token {
 struct CloseSquareBraceToken : public Token {
     constexpr static std::string_view regex = "\\]";
 };
+
+struct StringLiteralToken : public Token {
+    constexpr static std::string_view regex = "\".*\"";
+};

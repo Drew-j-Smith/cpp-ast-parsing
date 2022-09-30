@@ -42,12 +42,14 @@ struct IndexIdentifier {
 
 struct Expression {
     std::variant<std::unique_ptr<AddExpression>, Identifier, Integer,
-                 std::unique_ptr<FunctionCall>, IndexIdentifier>
+                 std::unique_ptr<FunctionCall>, IndexIdentifier,
+                 StringLiteralToken>
         data;
     explicit Expression(Identifier i) : data(i) {}
     explicit Expression(Integer d) : data(d) {}
     explicit Expression(FunctionCall &&f)
         : data(std::make_unique<FunctionCall>(std::move(f))) {}
+    explicit Expression(StringLiteralToken s) : data(s) {}
     Expression(OpenParenToken, AddExpression &&a, CloseParenToken)
         : data(std::make_unique<AddExpression>(std::move(a))) {}
     Expression(Identifier i, OpenSquareBraceToken, AddExpression &&a,
@@ -73,10 +75,13 @@ struct Expression {
             return out << "Expression("
                        << *std::get<std::unique_ptr<FunctionCall>>(e.data)
                        << ")";
-        } else {
+        } else if (std::holds_alternative<IndexIdentifier>(e.data)) {
             auto &indexed = std::get<IndexIdentifier>(e.data);
             return out << "Expression(" << indexed.i << "[" << *indexed.a
                        << "])";
+        } else {
+            return out << "Expression(" << std::get<StringLiteralToken>(e.data)
+                       << ")";
         }
     }
     Variable evaluate(const std::map<std::string, Variable> &variables) const {
@@ -92,7 +97,7 @@ struct Expression {
                        data)) {
             return evaluate_func_call(
                 *std::get<std::unique_ptr<FunctionCall>>(data), variables);
-        } else {
+        } else if (std::holds_alternative<IndexIdentifier>(data)) {
             auto &indexed = std::get<IndexIdentifier>(data);
             int index = std::get<int>(
                 evaluate_add_expression(*indexed.a, variables).data);
@@ -104,6 +109,11 @@ struct Expression {
             }
             return Variable{std::get<std::string>(
                 var.data)[static_cast<std::string::size_type>(index)]};
+        } else {
+            auto string = std::get<StringLiteralToken>(data).str;
+            string.remove_prefix(1);
+            string.remove_suffix(1);
+            return Variable{std::string{string}};
         }
     }
 };
@@ -114,7 +124,8 @@ template <> struct SymbolTraits<Expression> {
         ConstructorParams<OpenParenToken, AddExpression, CloseParenToken>,
         ConstructorParams<FunctionCall>,
         ConstructorParams<Identifier, OpenSquareBraceToken, AddExpression,
-                          CloseSquareBraceToken>>;
+                          CloseSquareBraceToken>,
+        ConstructorParams<StringLiteralToken>>;
     using ConstructorsNextSymbol =
         ConstructorTraits<MultToken, AddToken, SubToken, CloseParenToken,
                           SemicolonToken, CommaToken, CloseSquareBraceToken>;
