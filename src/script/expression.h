@@ -172,6 +172,11 @@ template <> struct SymbolTraits<MultExpression> {
                           SemicolonToken, CommaToken, CloseSquareBraceToken>;
 };
 
+template <typename T>
+concept Addable = requires(T t) {
+    {Variable{t + t}};
+};
+
 struct AddExpression {
     std::unique_ptr<AddExpression> a;
     MultExpression m;
@@ -194,17 +199,22 @@ struct AddExpression {
         if (a) {
             auto a_val = a->evaluate(variables);
             auto m_val = m.evaluate(variables);
-            if (std::holds_alternative<int>(a_val.data) &&
-                std::holds_alternative<int>(m_val.data)) {
-                if (is_add) {
-                    return Variable{std::get<int>(a_val.data) +
-                                    std::get<int>(m_val.data)};
-                } else {
-                    return Variable{std::get<int>(a_val.data) -
-                                    std::get<int>(m_val.data)};
-                }
-            }
-            throw std::runtime_error{"Invalid add types"};
+            return std::visit(
+                Overload{
+                    [&](const Addable auto &addable) {
+                        using addable_t = std::decay_t<decltype(addable)>;
+                        if (std::holds_alternative<addable_t>(m_val.data)) {
+                            return Variable{addable +
+                                            std::get<addable_t>(m_val.data)};
+                        }
+                        throw std::runtime_error{"Invalid add types1"};
+                        return Variable{};
+                    },
+                    [&](const auto &) {
+                        throw std::runtime_error{"Invalid add types"};
+                        return Variable{};
+                    }},
+                a_val.data);
         } else {
             return m.evaluate(variables);
         }
