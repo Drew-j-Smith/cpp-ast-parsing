@@ -12,14 +12,15 @@ template <typename... Types> Overload(Types...) -> Overload<Types...>;
 template <typename Variant>
 void printStack(const std::vector<Variant> &parseStack) {
     std::cerr << "Parse stack:\n";
-    for (const auto &el : parseStack) {
-        std::visit(Overload{[](std::monostate) { std::cerr << "monostate\n"; },
-                            [](const auto &variant) {
-                                std::cerr << typeid(decltype(variant)).name()
-                                          << ":" << variant << '\n';
-                            }},
-                   el);
-    }
+    // for (const auto &el : parseStack) {
+    //     std::visit(Overload{[](std::monostate) { std::cerr << "monostate\n";
+    //     },
+    //                         [](const auto &variant) {
+    //                             std::cerr << typeid(decltype(variant)).name()
+    //                                       << ":" << variant << '\n';
+    //                         }},
+    //                el);
+    // }
     std::cerr << "\n";
 }
 

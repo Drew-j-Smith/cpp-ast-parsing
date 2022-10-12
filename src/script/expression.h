@@ -1,7 +1,6 @@
 #pragma once
 
 #include "parser/parser.h"
-#include "tokens.h"
 #include "variable.h"
 #include <algorithm>
 #include <charconv>
@@ -77,11 +76,11 @@ struct Expression {
                        << ")";
         } else if (std::holds_alternative<IndexIdentifier>(e.data)) {
             auto &indexed = std::get<IndexIdentifier>(e.data);
-            return out << "Expression(" << indexed.i << "[" << *indexed.a
+            return out << "Expression(" << indexed.i.str << "[" << *indexed.a
                        << "])";
         } else {
-            return out << "Expression(" << std::get<StringLiteralToken>(e.data)
-                       << ")";
+            return out << "Expression("
+                       << std::get<StringLiteralToken>(e.data).str << ")";
         }
     }
     Variable evaluate(const std::map<std::string, Variable> &variables) const {
@@ -249,7 +248,7 @@ struct Assignment {
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const Assignment &other) {
-        return out << "Assignment(" << other.i << "=" << other.a << ")";
+        return out << "Assignment(" << other.i.str << "=" << other.a << ")";
     }
 
     void evaluate(std::map<std::string, Variable> &variables) const {
@@ -305,7 +304,7 @@ struct FunctionParameters {
 
     friend std::ostream &operator<<(std::ostream &out,
                                     const FunctionParameters &other) {
-        out << other.i << '(';
+        out << other.i.str << '(';
         for (const auto &param : other.parameters) {
             out << param << ',';
         }
