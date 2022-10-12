@@ -3,10 +3,21 @@
 #include "util.h"
 #include <array>
 
+template <typename T, typename... Ts> struct IndexInVariatic;
+
+template <typename T, typename... Ts> struct IndexInVariatic<T, T, Ts...> {
+    constexpr static auto value = 0;
+};
+
+template <typename T, typename U, typename... Ts>
+struct IndexInVariatic<T, U, Ts...> {
+    constexpr static auto value = IndexInVariatic<T, Ts...>::value + 1;
+};
+
 template <typename... Args> struct LookaheadTraits {
 
     template <typename TypeToIndex> constexpr static int getIndex() {
-        return 0;
+        return IndexInVariatic<TypeToIndex, Args...>::value;
     }
 
     template <typename First, typename Second>
@@ -48,7 +59,7 @@ template <typename... Args> struct LookaheadTraits {
     constexpr static std::array<std::array<bool, sizeof...(Args)>,
                                 sizeof...(Args)>
     genLookaheadTable() {
-        std::array<std::array<bool, sizeof...(Args)>, sizeof...(Args)> res;
+        std::array<std::array<bool, sizeof...(Args)>, sizeof...(Args)> res{};
         (updateLookahead<Args>(res), ...);
         return res;
     }
