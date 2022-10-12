@@ -20,8 +20,7 @@ auto parse(Terminals<TerminalArgs...>, Symbols<SymbolArgs...>,
 
     const char *end = str.data();
     for (const auto token : Lexer{str}) {
-        Variant lookahead;
-        std::visit([&](auto arg) { lookahead = arg; }, tokenToVariant(token));
+        Variant lookahead = token.toVariant<Variant>();
         if (std::holds_alternative<std::monostate>(lookahead)) {
             break;
         }

@@ -24,13 +24,80 @@ enum class TokenType : int {
     EndOfStream,
     If,
     While,
+    StringLiteral,
     Identifier,
     Number,
 };
 
+struct Identifier {
+    std::string_view str;
+};
+struct IntegerToken {
+    std::string_view str;
+};
+struct StringLiteralToken {
+    std::string_view str;
+};
+struct IfToken {};
+struct WhileToken {};
+struct OpenParenToken {};
+struct CloseParenToken {};
+struct OpenBraceToken {};
+struct CloseBraceToken {};
+struct MultToken {};
+struct AddToken {};
+struct SubToken {};
+struct EqlToken {};
+struct SemicolonToken {};
+struct CommaToken {};
+struct OpenSquareBraceToken {};
+struct CloseSquareBraceToken {};
+
 struct Token {
     TokenType type;
     std::string_view str;
+
+    template <typename T> constexpr T toVariant() const {
+        switch (type) {
+        case TokenType::OpenParen:
+            return OpenParenToken{};
+        case TokenType::CloseParen:
+            return CloseParenToken{};
+        case TokenType::OpenBrace:
+            return OpenBraceToken{};
+        case TokenType::CloseBrace:
+            return CloseBraceToken{};
+        case TokenType::OpenSquareBrace:
+            return OpenSquareBraceToken{};
+        case TokenType::CloseSquareBrace:
+            return CloseSquareBraceToken{};
+        case TokenType::Plus:
+            return AddToken{};
+        case TokenType::Minus:
+            return SubToken{};
+        case TokenType::Mult:
+            return MultToken{};
+        case TokenType::Equal:
+            return EqlToken{};
+        case TokenType::Comma:
+            return CommaToken{};
+        case TokenType::SemiColon:
+            return SemicolonToken{};
+        case TokenType::EndOfStream:
+            return std::monostate{};
+        case TokenType::If:
+            return IfToken{};
+        case TokenType::While:
+            return WhileToken{};
+        case TokenType::StringLiteral:
+            return StringLiteralToken{str};
+        case TokenType::Identifier:
+            return Identifier{str};
+        case TokenType::Number:
+            return IntegerToken{str};
+        }
+        return {};
+    }
 };
 
 constexpr static char chars[] = "(){}[]+-*=,;";
@@ -62,6 +129,13 @@ constexpr Token parse(std::string_view str) {
             !is_word(str[keywords[i].size()])) {
             return {static_cast<TokenType>(i + sizeof(chars)),
                     {str.data(), keywords[i].size()}};
+        }
+    }
+
+    if (str[0] == '"') {
+        auto string_end = str.find_first_of('"', 1);
+        if (string_end != std::string_view::npos) {
+            return {TokenType::StringLiteral, {str.data(), string_end + 1}};
         }
     }
 
@@ -115,73 +189,3 @@ struct Lexer {
     auto begin() { return ++Iterator{str, {}}; }
     constexpr auto end() { return IteratorSentinel{}; }
 };
-
-struct Identifier {
-    std::string_view str;
-};
-struct IntegerToken {
-    std::string_view str;
-};
-struct StringLiteralToken {
-    std::string_view str;
-};
-struct IfToken {};
-struct WhileToken {};
-struct OpenParenToken {};
-struct CloseParenToken {};
-struct OpenBraceToken {};
-struct CloseBraceToken {};
-struct MultToken {};
-struct AddToken {};
-struct SubToken {};
-struct EqlToken {};
-struct SemicolonToken {};
-struct CommaToken {};
-struct OpenSquareBraceToken {};
-struct CloseSquareBraceToken {};
-
-std::variant<std::monostate, IfToken, WhileToken, Identifier, IntegerToken,
-             OpenParenToken, CloseParenToken, OpenBraceToken, CloseBraceToken,
-             MultToken, AddToken, SubToken, EqlToken, SemicolonToken,
-             CommaToken, OpenSquareBraceToken, CloseSquareBraceToken,
-             StringLiteralToken>
-tokenToVariant(Token t) {
-
-    switch (t.type) {
-    case TokenType::OpenParen:
-        return OpenParenToken{};
-    case TokenType::CloseParen:
-        return CloseParenToken{};
-    case TokenType::OpenBrace:
-        return OpenBraceToken{};
-    case TokenType::CloseBrace:
-        return CloseBraceToken{};
-    case TokenType::OpenSquareBrace:
-        return OpenSquareBraceToken{};
-    case TokenType::CloseSquareBrace:
-        return CloseSquareBraceToken{};
-    case TokenType::Plus:
-        return AddToken{};
-    case TokenType::Minus:
-        return SubToken{};
-    case TokenType::Mult:
-        return MultToken{};
-    case TokenType::Equal:
-        return EqlToken{};
-    case TokenType::Comma:
-        return CommaToken{};
-    case TokenType::SemiColon:
-        return SemicolonToken{};
-    case TokenType::EndOfStream:
-        return std::monostate{};
-    case TokenType::If:
-        return IfToken{};
-    case TokenType::While:
-        return WhileToken{};
-    case TokenType::Identifier:
-        return Identifier{t.str};
-    case TokenType::Number:
-        return IntegerToken{t.str};
-    }
-    return {};
-}
