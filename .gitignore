@@ -35,3 +35,6 @@ build
 .vscode
 cmake-build-debug
 .idea
+
+parser_wasm.js
+parser_wasm.wasm

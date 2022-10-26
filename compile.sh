@@ -1,0 +1,1 @@
+emcc src/main.cpp -Isrc -Ilib/compile-time-regular-expressions/single-header -std=c++20 -sEXPORTED_FUNCTIONS=_wasm_parse,_main -sEXPORTED_RUNTIME_METHODS=cwrap -o web/parser_wasm.js
