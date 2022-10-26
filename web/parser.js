@@ -11,9 +11,11 @@ var Module = {
     onRuntimeInitialized() {
         let wasm_parse = this.cwrap("wasm_parse", null, ["string"]);
         button.onclick = () => {
-            let p = document.createElement("code");
-            p.textContent = input.value;
-            output.appendChild(p);
+            let code = document.createElement("code");
+            code.textContent = input.value;
+            let pre = document.createElement("pre");
+            pre.appendChild(code);
+            output.appendChild(pre);
             wasm_parse(input.value);
             input.value = "";
         }
