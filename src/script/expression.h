@@ -177,6 +177,11 @@ concept Addable = requires(T t) {
     {Variable{t + t}};
 };
 
+template <typename T>
+concept Subtractable = requires(T t) {
+    {Variable{t - t}};
+};
+
 struct AddExpression {
     std::unique_ptr<AddExpression> a;
     MultExpression m;
@@ -199,22 +204,44 @@ struct AddExpression {
         if (a) {
             auto a_val = a->evaluate(variables);
             auto m_val = m.evaluate(variables);
-            return std::visit(
-                Overload{
-                    [&](const Addable auto &addable) {
-                        using addable_t = std::decay_t<decltype(addable)>;
-                        if (std::holds_alternative<addable_t>(m_val.data)) {
-                            return Variable{addable +
-                                            std::get<addable_t>(m_val.data)};
-                        }
-                        throw std::runtime_error{"Invalid add types1"};
-                        return Variable{};
-                    },
-                    [&](const auto &) {
-                        throw std::runtime_error{"Invalid add types"};
-                        return Variable{};
-                    }},
-                a_val.data);
+            if (is_add) {
+
+                return std::visit(
+                    Overload{
+                        [&](const Addable auto &addable) {
+                            using addable_t = std::decay_t<decltype(addable)>;
+                            if (std::holds_alternative<addable_t>(m_val.data)) {
+                                return Variable{
+                                    addable + std::get<addable_t>(m_val.data)};
+                            }
+                            throw std::runtime_error{"Invalid add types1"};
+                            return Variable{};
+                        },
+                        [&](const auto &) {
+                            throw std::runtime_error{"Invalid add types"};
+                            return Variable{};
+                        }},
+                    a_val.data);
+            } else {
+                return std::visit(
+                    Overload{[&](const Subtractable auto &subtractable) {
+                                 using subtractable_t =
+                                     std::decay_t<decltype(subtractable)>;
+                                 if (std::holds_alternative<subtractable_t>(
+                                         m_val.data)) {
+                                     return Variable{
+                                         subtractable -
+                                         std::get<subtractable_t>(m_val.data)};
+                                 }
+                                 throw std::runtime_error{"Invalid add types1"};
+                                 return Variable{};
+                             },
+                             [&](const auto &) {
+                                 throw std::runtime_error{"Invalid add types"};
+                                 return Variable{};
+                             }},
+                    a_val.data);
+            }
         } else {
             return m.evaluate(variables);
         }
