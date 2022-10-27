@@ -29,6 +29,7 @@ I will be excluding the terminal symbols. They are defined by the the regular ex
                               | <OpenParenToken><AddExpression><CloseParenToken>
                               | <FunctionCall>
                               | <Identifier><OpenSquareBraceToken><AddExpression><CloseSquareBraceToken>
+                              | <StringLiteralToken>
 
            <MultExpression> ::= <MultExpression><MultToken><Expression>
                               | <Expression>
